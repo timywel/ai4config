@@ -23,9 +23,9 @@
 
 ## T2 core/profile（预估 2d）
 
-- [ ] **T2.1** profile 读写（manifest.yaml + 各实体文件布局）｜ 依赖：T1.1
-- [ ] **T2.2** 五层合并物化：merge-by-id 浅字段级 + concat 两段式 + 墓碑遮蔽（IR-SCHEMA §2）｜ 依赖：T2.1 ｜ 验收：E0 全项（含遮蔽、防误判前提）
-- [ ] **T2.3** ir_version 链式迁移框架（占位 v1 恒等）｜ 验收：高于实现版本拒绝
+- [x] **T2.1** profile 读写（manifest.yaml + 各实体文件布局）｜ 依赖：T1.1（2026-08-17；store.go，含 instructions/mcp/packs/hooks/settings 全类型，x- 扩展与正文保留，0600 原子写）
+- [x] **T2.2** 五层合并物化：merge-by-id 浅字段级 + concat 两段式 + 墓碑遮蔽（IR-SCHEMA §2）｜ 依赖：T2.1 ｜ 验收：E0 全项（含遮蔽、防误判前提）（2026-08-17；merge.go，11 项合并单测全绿）
+- [x] **T2.3** ir_version 链式迁移框架（占位 v1 恒等）｜ 验收：高于实现版本拒绝（2026-08-17；migrate.go + 版本超限/非法 policy 测试）
 
 ## T3 store（预估 2d）
 

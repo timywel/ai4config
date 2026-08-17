@@ -68,8 +68,8 @@
 
 ## T10 CLI 接入（预估 1.5d）
 
-- [ ] **T10.1** cobra 命令树：scan/collect/export/migrate/link/list/show/snapshot/restore/doctor/config（flag 与退出码按 CLI-SPEC §0–§11）｜ 依赖：T7–T9
-- [ ] **T10.2** 输出格式化（text/json）+ Warnings→退出码 5 语义｜ 验收：e2e 剧本全命令
+- [x] **T10.1** cobra 命令树：scan/collect/export/migrate/link/list/show/snapshot/restore/doctor/config（flag 与退出码按 CLI-SPEC §0–§11）｜ 依赖：T7–T9（2026-08-17；cmd/cfg4ai/cmd/ 全命令；link 最小实现并入 collect 项目 profile）
+- [x] **T10.2** 输出格式化（text/json）+ Warnings→退出码 5 语义｜ 验收：e2e 剧本全命令（2026-08-17；退出码 0/1/2/3/4/5 + warnExit；真实二进制 scan/doctor 验证通过）
 
 ## T11 对抗回归（预估 1d）
 

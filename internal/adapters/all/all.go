@@ -4,6 +4,6 @@ package all
 
 import (
 // P0 适配器（实现后取消注释）：
-	// _ "github.com/timywel/ai4config/internal/adapters/claudecode"
-	// _ "github.com/timywel/ai4config/internal/adapters/codex"
+// _ "github.com/timywel/ai4config/internal/adapters/claudecode"
+// _ "github.com/timywel/ai4config/internal/adapters/codex"
 )

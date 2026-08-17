@@ -18,15 +18,16 @@ const (
 )
 
 // layerRank 返回层级优先级（值越小优先级越高），concat/遮蔽排序依据。
+// 优先级：managed > local > project > remote > global（IR-SCHEMA §1.2，具体赢通用）。
 func layerRank(s Scope) int {
 	switch s {
 	case ScopeManaged:
 		return 0
-	case ScopeRemote:
-		return 1
 	case ScopeLocal:
-		return 2
+		return 1
 	case ScopeProject:
+		return 2
+	case ScopeRemote:
 		return 3
 	case ScopeGlobal:
 		return 4
@@ -84,6 +85,9 @@ type Header struct {
 	Tombstone  bool           `yaml:"tombstone,omitempty"` // 墓碑（判定前提见 IR-SCHEMA §2.3）
 	Extensions map[string]any `yaml:"-"`                   // x-<tool>；序列化时展开
 }
+
+// GetHeader 返回实体头（供 profile 合并泛型统一访问 ID/Tombstone/Extensions）。
+func (h *Header) GetHeader() *Header { return h }
 
 // Instruction 指令/记忆（IR-SCHEMA §3.1）。
 type Instruction struct {

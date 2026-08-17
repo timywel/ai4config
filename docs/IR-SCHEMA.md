@@ -39,7 +39,7 @@ project  （项目层）
 global   （用户层）
 ```
 
-- 优先级：`managed > remote > local > project > global`（依据 RESEARCH-SUMMARY D1）。
+- 优先级：`managed > local > project > remote > global`（依据 RESEARCH-SUMMARY D1；与 §3.1 priority 默认值 global=100/remote=150/project=200/local=200 一致——具体赢通用，组织订阅 remote 介于用户与项目之间）。
 - `origin.scope` 记录采集来源层；merge 时 concat 排序 = 低优先级在前（global→remote→project→local）；**managed 层采集仅供审计与差分比对，不参与导出物化**（除非适配器显式声明可写）。
 - 替代 v0.2 的 `local: true` 布尔位（迁移：local=true → scope=local）。
 

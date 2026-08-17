@@ -64,28 +64,32 @@ func runE2E(t *testing.T, tc e2eCase) {
 	}
 }
 
-// TestVersion 验证 --version 与无参用法错误（CLI-SPEC §0 退出码 0/2）。
+// TestVersion 验证 version 子命令与无参行为（CLI-SPEC §0）。
 func TestVersion(t *testing.T) {
 	runE2E(t, e2eCase{
-		name:     "version",
-		args:     []string{"--version"},
+		name:     "version 子命令",
+		args:     []string{"version"},
 		wantOut:  regexp.MustCompile(`cfg4ai 0\.0\.1-dev`),
 		wantCode: 0,
 	})
 	runE2E(t, e2eCase{
-		name:     "no-args 为用法错误",
+		name:     "无参打印帮助",
 		args:     nil,
-		wantOut:  regexp.MustCompile(`CLI-SPEC`),
-		wantCode: 2,
+		wantOut:  regexp.MustCompile(`cfg4ai`),
+		wantCode: 0,
 	})
 }
 
-// TestUnknownArg 骨架期任何非 version 参数均为用法错误。
+// TestUnknownArg 未知命令为用法错误（退出码 2）。
 func TestUnknownArg(t *testing.T) {
 	runE2E(t, e2eCase{
-		name:     "unknown",
+		name:     "unknown command",
 		args:     []string{"frobnicate"},
-		wantOut:  regexp.MustCompile(`cfg4ai`),
+		wantCode: 2,
+	})
+	runE2E(t, e2eCase{
+		name:     "unknown flag",
+		args:     []string{"scan", "--nonexistent-flag"},
 		wantCode: 2,
 	})
 }

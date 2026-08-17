@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/pelletier/go-toml/v2"
@@ -11,6 +12,29 @@ import (
 	"github.com/timywel/ai4config/internal/adapters"
 	"github.com/timywel/ai4config/internal/core/ir"
 )
+
+// findPlan 从渲染计划取某后缀路径的内容（适配器只渲染不落盘，ARCHITECTURE §5.3）。
+func findPlan(t *testing.T, files []adapters.WrittenFile, suffix string) []byte {
+	t.Helper()
+	for _, f := range files {
+		if strings.HasSuffix(filepath.ToSlash(f.Path), suffix) {
+			return f.Content
+		}
+	}
+	t.Fatalf("渲染计划中缺少 *%s", suffix)
+	return nil
+}
+
+// applyPlan 把渲染计划落盘（测试用，模拟引擎 writePlanned）。
+func applyPlan(t *testing.T, files []adapters.WrittenFile) {
+	t.Helper()
+	for _, f := range files {
+		os.MkdirAll(filepath.Dir(f.Path), 0o755)
+		if err := os.WriteFile(f.Path, f.Content, 0o644); err != nil {
+			t.Fatalf("落盘 %s: %v", f.Path, err)
+		}
+	}
+}
 
 func TestImportConfigTOML(t *testing.T) {
 	dir := t.TempDir()
@@ -144,14 +168,12 @@ func TestExportPolarityAndTimeout(t *testing.T) {
 	}
 
 	a := &adapter{}
-	if _, err := a.Export(context.Background(), b, adapters.ExportOpts{ProjectRoot: root}); err != nil {
+	files, err := a.Export(context.Background(), b, adapters.ExportOpts{ProjectRoot: root})
+	if err != nil {
 		t.Fatalf("Export: %v", err)
 	}
 
-	data, err := os.ReadFile(filepath.Join(root, ".codex", "config.toml"))
-	if err != nil {
-		t.Fatalf("config.toml 未生成: %v", err)
-	}
+	data := findPlan(t, files, ".codex/config.toml")
 	var cfg map[string]any
 	if err := toml.Unmarshal(data, &cfg); err != nil {
 		t.Fatalf("config.toml 解析: %v", err)
@@ -183,10 +205,11 @@ func TestExportProjectSkipsMachineKeys(t *testing.T) {
 		},
 	}
 	a := &adapter{}
-	if _, err := a.Export(context.Background(), b, adapters.ExportOpts{ProjectRoot: root}); err != nil {
+	files, err := a.Export(context.Background(), b, adapters.ExportOpts{ProjectRoot: root})
+	if err != nil {
 		t.Fatalf("Export: %v", err)
 	}
-	data, _ := os.ReadFile(filepath.Join(root, ".codex", "config.toml"))
+	data := findPlan(t, files, ".codex/config.toml")
 	var cfg map[string]any
 	toml.Unmarshal(data, &cfg)
 	if _, exists := cfg["notify"]; exists {
@@ -213,9 +236,11 @@ startup_timeout_sec = 8
 	dst := t.TempDir()
 	os.Setenv("CODEX_HOME", dst)
 	defer os.Unsetenv("CODEX_HOME")
-	if _, err := a.Export(context.Background(), b1, adapters.ExportOpts{}); err != nil {
+	plan, err := a.Export(context.Background(), b1, adapters.ExportOpts{})
+	if err != nil {
 		t.Fatalf("Export: %v", err)
 	}
+	applyPlan(t, plan) // 落盘到 CODEX_HOME(dst) 后重导
 	b2, _ := a.Import(context.Background(), adapters.Location{Scope: ir.ScopeGlobal, Root: dst})
 
 	if len(b1.MCPServers) != len(b2.MCPServers) {

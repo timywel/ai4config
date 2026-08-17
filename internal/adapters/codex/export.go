@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/timywel/ai4config/internal/adapters"
-	"github.com/timywel/ai4config/internal/atomicfile"
 	"github.com/timywel/ai4config/internal/core/ir"
 	"github.com/timywel/ai4config/internal/platform/paths"
 )
@@ -93,18 +92,9 @@ func renderSkillMD(p ir.PromptPack) []byte {
 	return []byte(sb.String())
 }
 
-// writeOne 写单文件（dryRun 时只计算 hash 不落盘）。
+// writeOne 生成渲染计划（不落盘；统一由引擎经 atomicfile 写盘，ARCHITECTURE §5.3）。
 func writeOne(path string, content []byte, dryRun bool) (adapters.WrittenFile, error) {
+	_ = dryRun // 适配器不落盘，dryRun 由引擎控制
 	sum := sha256.Sum256(content)
-	wf := adapters.WrittenFile{Path: path, Hash: hex.EncodeToString(sum[:])}
-	if dryRun {
-		return wf, nil
-	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return wf, err
-	}
-	if err := atomicfile.WriteFile(path, content, 0o600); err != nil {
-		return wf, err
-	}
-	return wf, nil
+	return adapters.WrittenFile{Path: path, Hash: hex.EncodeToString(sum[:]), Content: content}, nil
 }

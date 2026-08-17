@@ -12,6 +12,29 @@ import (
 	"github.com/timywel/ai4config/internal/core/ir"
 )
 
+// findPlan 从渲染计划取某后缀路径的内容（适配器只渲染不落盘，ARCHITECTURE §5.3）。
+func findPlan(t *testing.T, files []adapters.WrittenFile, suffix string) []byte {
+	t.Helper()
+	for _, f := range files {
+		if strings.HasSuffix(filepath.ToSlash(f.Path), suffix) {
+			return f.Content
+		}
+	}
+	t.Fatalf("渲染计划中缺少 *%s", suffix)
+	return nil
+}
+
+// applyPlan 把渲染计划落盘（测试用，模拟引擎 writePlanned）。
+func applyPlan(t *testing.T, files []adapters.WrittenFile) {
+	t.Helper()
+	for _, f := range files {
+		os.MkdirAll(filepath.Dir(f.Path), 0o755)
+		if err := os.WriteFile(f.Path, f.Content, 0o644); err != nil {
+			t.Fatalf("落盘 %s: %v", f.Path, err)
+		}
+	}
+}
+
 func TestExportProject(t *testing.T) {
 	root := t.TempDir()
 	b := &ir.Bundle{
@@ -45,11 +68,7 @@ func TestExportProject(t *testing.T) {
 	}
 
 	// CLAUDE.md 含边界注释 + 两条正文
-	data, err := os.ReadFile(filepath.Join(root, "CLAUDE.md"))
-	if err != nil {
-		t.Fatalf("CLAUDE.md 未生成: %v", err)
-	}
-	content := string(data)
+	content := string(findPlan(t, files, "CLAUDE.md"))
 	if !strings.Contains(content, "<!-- cfg4ai:begin instruction.a -->") {
 		t.Error("CLAUDE.md 缺边界注释 begin")
 	}
@@ -58,7 +77,7 @@ func TestExportProject(t *testing.T) {
 	}
 
 	// .mcp.json 结构
-	mcpData, _ := os.ReadFile(filepath.Join(root, ".mcp.json"))
+	mcpData := findPlan(t, files, ".mcp.json")
 	var mcpFile struct {
 		MCPServers map[string]struct {
 			Command string   `json:"command"`
@@ -74,7 +93,7 @@ func TestExportProject(t *testing.T) {
 	}
 
 	// settings.json 含 model + hooks
-	setData, _ := os.ReadFile(filepath.Join(root, ".claude", "settings.json"))
+	setData := findPlan(t, files, "settings.json")
 	var settings map[string]any
 	json.Unmarshal(setData, &settings)
 	if settings["model"] != "opus" {
@@ -85,10 +104,7 @@ func TestExportProject(t *testing.T) {
 	}
 
 	// skills/review/SKILL.md
-	skillData, err := os.ReadFile(filepath.Join(root, ".claude", "skills", "review", "SKILL.md"))
-	if err != nil {
-		t.Fatalf("SKILL.md 未生成: %v", err)
-	}
+	skillData := findPlan(t, files, "skills/review/SKILL.md")
 	if !strings.Contains(string(skillData), "name: review") || !strings.Contains(string(skillData), "正文") {
 		t.Errorf("SKILL.md 内容错误:\n%s", skillData)
 	}
@@ -112,11 +128,13 @@ func TestRoundTrip(t *testing.T) {
 		t.Fatalf("Import1: %v", err)
 	}
 
-	// Export 到新目录
+	// Export 到新目录（渲染计划 → 落盘 → 重导）
 	dst := t.TempDir()
-	if _, err := a.Export(context.Background(), b1, adapters.ExportOpts{ProjectRoot: dst}); err != nil {
+	plan, err := a.Export(context.Background(), b1, adapters.ExportOpts{ProjectRoot: dst})
+	if err != nil {
 		t.Fatalf("Export: %v", err)
 	}
+	applyPlan(t, plan)
 
 	// 再 Import
 	b2, err := a.Import(context.Background(), adapters.Location{Scope: ir.ScopeProject, Root: dst})

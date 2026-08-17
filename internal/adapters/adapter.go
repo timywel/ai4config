@@ -47,10 +47,13 @@ type Location struct {
 	Running bool     // 目标进程运行中（best-effort，热重载提示依据）
 }
 
-// WrittenFile 导出写入清单条目（供引擎 Verify 与导出清单使用）。
+// WrittenFile 导出渲染计划条目。适配器只渲染（不落盘），Content 供引擎统一写盘。
+// 职责边界（ARCHITECTURE §5.3）：写盘统一由引擎经 atomicfile + 外来内容检查执行，
+// 适配器禁止手写写文件。
 type WrittenFile struct {
-	Path string
-	Hash string // 写出内容 sha256
+	Path    string
+	Hash    string // 写出内容 sha256（引擎 Verify 与导出清单用）
+	Content []byte // 渲染后的文件内容
 }
 
 // ExportOpts 导出选项。AIAssist 已移除（AI 由引擎层主导，见 ARCHITECTURE §5.1）。

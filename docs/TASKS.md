@@ -42,11 +42,11 @@
 
 ## T5 platform/paths（预估 0.5d，可与 T1–T4 并行）
 
-- [ ] **T5.1** ExpandRaw/CollapseRaw 实现（~/、%APPDATA%、$XDG 变量双向）｜ 验收：三平台单测 + 往返一致
+- [x] **T5.1** ExpandRaw/CollapseRaw 实现（~/、%APPDATA%、$XDG 变量双向）｜ 验收：三平台单测 + 往返一致（2026-08-17；paths_expand.go，全平台变量识别 + 最长前缀折叠）
 
 ## T6 atomicfile 完整化（预估 0.5d，可并行）
 
-- [ ] **T6.1** Windows 共享冲突指数退避重试（SHARING_VIOLATION/ACCESS_DENIED 分类）｜ 验收：占用注入单测
+- [x] **T6.1** Windows 共享冲突指数退避重试（SHARING_VIOLATION/ACCESS_DENIED 分类）｜ 验收：占用注入单测（2026-08-17；x/sys/windows 错误分类 + 指数退避 + 占用路径报错）
 
 ## T7 adapters/claudecode（预估 2.5d）
 

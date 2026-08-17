@@ -61,9 +61,10 @@
 
 ## T9 core/migrate 引擎（预估 2d）
 
-- [ ] **T9.1** 管线编排：Load→Merge→Map→Render→Verify→Write（W2 步骤 1–10）｜ 依赖：T2、T3
-- [ ] **T9.2** Verify 两级 + 空集保护 + 外来内容四选项交互｜ 验收：红队 T-01 链路 e2e
-- [ ] **T9.3** 降级引擎（能力矩阵驱动两级规则 + Warnings 汇总）｜ 验收：降级用例
+- [x] **T9.1** 管线编排：Load→Merge→Map→Render→Verify→Write（W2 步骤 1–10）｜ 依赖：T2、T3（2026-08-17；engine.go）
+- [x] **T9.2** Verify 两级 + 空集保护 + 外来内容四选项交互｜ 验收：红队 T-01 链路 e2e（2026-08-17；verify.go/foreign.go，空集保护+三态确认 Hooks）
+- [x] **T9.3** 降级引擎（能力矩阵驱动两级规则 + Warnings 汇总）｜ 验收：降级用例（2026-08-17；degrade.go，workflow→command→instruction 附录链）
+- 附：**架构修正**——WrittenFile 增 Content，写盘职责上收引擎（适配器纯渲染），修正外来内容检查时序缺陷
 
 ## T10 CLI 接入（预估 1.5d）
 

@@ -29,16 +29,16 @@
 
 ## T3 store（预估 2d）
 
-- [ ] **T3.1** 仓库初始化 + 目录 0700/文件 0600 校验修正 + 写锁 .lock（gofrs/flock）｜ 验收：并发竞写 e2e 剧本
-- [ ] **T3.2** 快照（manifest+blob 引用）与 restore 反向快照｜ 依赖：T3.1
-- [ ] **T3.3** blob 内容寻址 + 脱敏管线（先扫描替换→落盘→零命中校验；双 hash）｜ 依赖：T4.1 ｜ 验收：红队 T-05 相关用例
-- [ ] **T3.4** 导出清单 exports/（读写+hash 规范化比对+rebase 接口）｜ 验收：外来内容三态判定单测
+- [x] **T3.1** 仓库初始化 + 目录 0700/文件 0600 校验修正 + 写锁 .lock（gofrs/flock）｜ 验收：并发竞写 e2e 剧本（2026-08-17；store.go，锁竞争单测通过）
+- [x] **T3.2** 快照（manifest+blob 引用）与 restore 反向快照｜ 依赖：T3.1（2026-08-17；snapshot.go，创建/恢复/回收单测）
+- [x] **T3.3** blob 内容寻址 + 脱敏管线（先扫描替换→落盘→零命中校验；双 hash）｜ 依赖：T4.1 ｜ 验收：红队 T-05 相关用例（2026-08-17；blob.go + secrets/sanitize.go）
+- [x] **T3.4** 导出清单 exports/（读写+hash 规范化比对+rebase 接口）｜ 验收：外来内容三态判定单测（2026-08-17；exports.go，CRLF/BOM 规范化+rebase 单测）
 
 ## T4 secrets（预估 1.5d）
 
-- [ ] **T4.1** 三级后端降级链（99designs/keyring → age 文件 → none）+ secret_backend 记录｜ 验收：headless 模拟降级单测
-- [ ] **T4.2** 敏感扫描器（外置规则集+熵检测；结构化/自由文本分级处置；豁免清单）｜ 验收：规则命中/误报用例
-- [ ] **T4.3** 占位符回采保护（永不覆盖已有 secretref）｜ 验收：红队 T-03 用例
+- [x] **T4.1** 三级后端降级链（99designs/keyring → age 文件 → none）+ secret_backend 记录｜ 验收：headless 模拟降级单测（2026-08-17；backend.go/file.go，age 加密往返+错误口令拒绝单测；CGO_ENABLED=0 纯 Go 验证）
+- [x] **T4.2** 敏感扫描器（外置规则集+熵检测；结构化/自由文本分级处置；豁免清单）｜ 验收：规则命中/误报用例（2026-08-17；scan.go，gitleaks 规则集+熵检测+豁免）
+- [x] **T4.3** 占位符回采保护（永不覆盖已有 secretref）｜ 验收：红队 T-03 用例（2026-08-17；protect.go）
 
 ## T5 platform/paths（预估 0.5d，可与 T1–T4 并行）
 

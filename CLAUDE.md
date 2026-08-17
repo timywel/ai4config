@@ -1,4 +1,4 @@
-# CLAUDE.md — aicfg 开发参与指南
+# CLAUDE.md — cfg4ai 开发参与指南
 
 > Auto-loaded on every session. 优先级低于 AGENTS.md，两者冲突时以 AGENTS.md 为准。
 >
@@ -73,7 +73,7 @@
 
 #### 5.1 集成完整性检查（4 件套）
 
-> **铁律**：aicfg 的两类核心扩展点（**新适配器**、**新 CLI 命令**）必须**同时完成 4 件事**，缺一不算"完成"。
+> **铁律**：cfg4ai 的两类核心扩展点（**新适配器**、**新 CLI 命令**）必须**同时完成 4 件事**，缺一不算"完成"。
 
 **新适配器（如 `internal/adapters/<tool>/`）**：
 
@@ -84,13 +84,13 @@
 | 3 | **golden-file 双向测试** | Import/Export round-trip，显式覆盖 YAML 注释/键序保留；幂等（第二次 Export 全 no-op） | `go test ./internal/adapters/<tool>/` |
 | 4 | **文档登记** | `docs/ADAPTERS.md` 工具配置地图 + 目标语义差异表（D16：合并/极性/覆盖差异由适配器消化） | diff 检查 ADAPTERS.md |
 
-**新 CLI 命令（如 `aicfg collect`）**：
+**新 CLI 命令（如 `cfg4ai collect`）**：
 
 | # | 必须 | 说明 | 验证方式 |
 | --- | --- | --- | --- |
-| 1 | **cobra 注册** | 命令挂到 root，flag 定义完整 | `go run ./cmd/aicfg --help` |
+| 1 | **cobra 注册** | 命令挂到 root，flag 定义完整 | `go run ./cmd/cfg4ai --help` |
 | 2 | **CLI-SPEC 对照** | flag 名/退出码/确认链（`--yes` 不豁免项）符合 `docs/CLI-SPEC.md` | 逐条对照 |
-| 3 | **testscript 测试** | 命令交互场景（含错误路径与退出码） | `go test ./cmd/aicfg/` |
+| 3 | **testscript 测试** | 命令交互场景（含错误路径与退出码） | `go test ./cmd/cfg4ai/` |
 | 4 | **文档登记** | CLI-SPEC 命令-阶段对照表（§11）更新 | diff 检查 CLI-SPEC.md |
 
 **反模式（明确禁止）**：
@@ -105,7 +105,7 @@
 
 - 适配器写了 ≠ 接入系统——`adapters → all → cmd` 靠 blank import 链接，漏掉任何一个环节，运行时该工具对 `collect`/`export` 不可见，且**编译期无任何报错**。
 - 单测全绿会**掩盖**集成完整性问题——单测只测包内逻辑，不测 Register 链路与能力矩阵是否被引擎正确消费。
-- aicfg 的正确性靠证伪机制逼近（`docs/ARCHITECTURE.md` §2）：round-trip diff + golden-file + 对抗用例库。**跳过 round-trip 等于放弃正确性保证**。
+- cfg4ai 的正确性靠证伪机制逼近（`docs/ARCHITECTURE.md` §2）：round-trip diff + golden-file + 对抗用例库。**跳过 round-trip 等于放弃正确性保证**。
 
 ### 6. 减法偏好
 
@@ -235,19 +235,19 @@
 
 ## 输出路径严格分流（根目录零散文件强制约束）
 
-> **aicfg 运行时产物 ≠ 项目内开发工具产物 ≠ 正式源码/计划/文档**，三者必须各归各位，根目录严禁出现散落产物。
+> **cfg4ai 运行时产物 ≠ 项目内开发工具产物 ≠ 正式源码/计划/文档**，三者必须各归各位，根目录严禁出现散落产物。
 
 ### 规则表
 
 | 产物类型 | 目标路径 | 备注 |
 | --- | --- | --- |
-| **aicfg 运行时产物**（profiles / snapshots / blobs / registry / exports / secrets.age / cache / logs / `.lock`） | `$AICFG_HOME/`（默认平台用户目录，由 `internal/platform/paths` 封装，见 `docs/ARCHITECTURE.md` §7） | **绝不入仓库**；sync 白名单内仅 `profiles/`、`registry.yaml`、`config.yaml`、`exports/` |
+| **cfg4ai 运行时产物**（profiles / snapshots / blobs / registry / exports / secrets.age / cache / logs / `.lock`） | `$CFG4AI_HOME/`（默认平台用户目录，由 `internal/platform/paths` 封装，见 `docs/ARCHITECTURE.md` §7） | **绝不入仓库**；sync 白名单内仅 `profiles/`、`registry.yaml`、`config.yaml`、`exports/` |
 | **项目内开发工具产物**（测试输出 / 调试 dump / 调研产物 / 外部脚本产物 / 临时归档） | `<repo>/temp/{对应子目录}/` | **注意是 `temp/` 不是 `tmp/`** |
 | **项目正式源码 / 计划 / 正式文档** | `cmd/`、`internal/`、`docs/`、`plan/{待完成,进行中,已完成}/` 等正式目录 | 走计划驱动模式，需用户批准 |
 
 ### 根目录严禁出现
 
-- ❌ `profiles/`、`snapshots/`、`blobs/`、`exports/`、`secrets.age` 等 SSOT 目录/文件（应放 `$AICFG_HOME/`）
+- ❌ `profiles/`、`snapshots/`、`blobs/`、`exports/`、`secrets.age` 等 SSOT 目录/文件（应放 `$CFG4AI_HOME/`）
 - ❌ `产物/`、`artifacts/`、`cache/`、`research/`（散落副本；正式调研档案归 `docs/research/`）
 - ❌ 散落的 `check*.go` / `test-dev*.go` / `debug*.go` / `main.go`（ad-hoc 调试）
 - ❌ 散落的 `*.png` / `*.log` / `*.out` / `*.dump`
@@ -346,7 +346,7 @@ grep -rL "Copyright" cmd/ internal/ --include="*.go" || echo "全部含声明"
 
 > **目的**：明确外部 AI 编码辅助 skill 的集成位置、触发场景、冲突降级规则。
 > **作用域**：**仅限 AI 编码工具层**（用户级 `~/.claude/skills/` 等），与本项目源码**完全解耦**。
-> **适用性说明**：以下清单已按 aicfg 项目（Go CLI，无前端）裁剪；不适用的场景已标注。
+> **适用性说明**：以下清单已按 cfg4ai 项目（Go CLI，无前端）裁剪；不适用的场景已标注。
 
 ### 1. 集成位置（统一在用户级目录，不进仓库）
 

@@ -36,15 +36,4 @@ func CacheHome() (string, error) {
 	return filepath.Join(base, "cfg4ai"), nil
 }
 
-// ExpandRaw 把 IR 中记录的 raw 变量形态路径（~/...、%APPDATA%/...）
-// 展开为当前平台绝对路径（导出/回写时调用）。
-func ExpandRaw(raw string) (string, error) {
-	// TODO(P0): 实现 ~/、%APPDATA%、$XDG_CONFIG_HOME 变量展开
-	return raw, nil
-}
-
-// CollapseRaw 是 ExpandRaw 的逆操作：绝对路径 → raw 变量形态（采集入 origin.path 时调用）。
-func CollapseRaw(abs string) (string, error) {
-	// TODO(P0): 实现逆展开（origin.path 以变量形态记录，跨机可移植）
-	return abs, nil
-}
+// ExpandRaw / CollapseRaw 的路径变量双向展开见 paths_expand.go。

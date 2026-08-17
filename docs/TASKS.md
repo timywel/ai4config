@@ -56,8 +56,8 @@
 
 ## T8 adapters/codex（预估 2d）
 
-- [ ] **T8.1** Detect + Import：config.toml（全键含 mcp_servers 极性取反）、AGENTS.md 逐目录/subtree、AGENTS.override.md、hooks、profiles 映射
-- [ ] **T8.2** Export：TOML 整块重写+快照兜底策略、机器级键项目级跳过 Warning｜ 验收：golden-file 双向 + trusted-gate 用例
+- [x] **T8.1** Detect + Import：config.toml（全键含 mcp_servers 极性取反）、AGENTS.md 逐目录/subtree、AGENTS.override.md、hooks、profiles 映射｜ 验收：golden-file Import 全绿（2026-08-17；detect.go/import.go/parse.go，极性取反+timeout 换算+trusted-gate）
+- [x] **T8.2** Export：TOML 整块重写+快照兜底策略、机器级键项目级跳过 Warning｜ 验收：golden-file 双向 + trusted-gate 用例（2026-08-17；render.go/export.go，极性/换算/机器级键/round-trip 5 组用例）
 
 ## T9 core/migrate 引擎（预估 2d）
 

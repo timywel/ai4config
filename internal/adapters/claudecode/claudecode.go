@@ -4,7 +4,6 @@ package claudecode
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/timywel/ai4config/internal/adapters"
 	"github.com/timywel/ai4config/internal/core/ir"
@@ -18,7 +17,7 @@ func (a *adapter) Import(ctx context.Context, loc adapters.Location) (*ir.Bundle
 }
 
 func (a *adapter) Export(ctx context.Context, b *ir.Bundle, opts adapters.ExportOpts) ([]adapters.WrittenFile, error) {
-	return nil, fmt.Errorf("claudecode: Export 未实现（T7.3）")
+	return a.exportBundle(ctx, b, opts)
 }
 
 type adapter struct{}

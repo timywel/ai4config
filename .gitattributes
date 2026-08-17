@@ -1,0 +1,10 @@
+# cfg4ai 仓库统一 LF（ARCHITECTURE §8 换行符策略落地）
+* text=auto eol=lf
+
+# 二进制与大文件不做换行转换
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.zip binary
+*.exe binary

@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>cfg4ai 设计全书 — AI 编码工具配置管理与迁移系统</title>
+<style>
+  :root {
+    --ink: #1f2329; --ink-soft: #4b5563; --accent: #1a5fb4; --accent-soft: #e8f0fa;
+    --line: #e5e7eb; --bg-soft: #f6f7f9; --code-bg: #f3f4f6;
+    --warn-bg: #fff8e6; --warn-line: #f0c36d; --danger-bg: #fdeeee; --danger-line: #e08c8c;
+    --ok-bg: #ecf7ef; --ok-line: #7cc496;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0; color: var(--ink); background: #fff; font-size: 16px; line-height: 1.85;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+  }
+  .layout { display: flex; max-width: 1280px; margin: 0 auto; }
+  nav#toc {
+    width: 280px; flex-shrink: 0; padding: 32px 20px 32px 28px;
+    position: sticky; top: 0; height: 100vh; overflow-y: auto;
+    border-right: 1px solid var(--line); font-size: 13.5px; line-height: 1.6;
+  }
+  nav#toc .toc-title { font-weight: 700; font-size: 15px; margin-bottom: 4px; }
+  nav#toc .toc-sub { color: var(--ink-soft); font-size: 12px; margin-bottom: 18px; }
+  nav#toc ol { list-style: none; padding-left: 0; margin: 0; }
+  nav#toc li { margin: 2px 0; }
+  nav#toc a { color: var(--ink-soft); text-decoration: none; display: block; padding: 3px 8px; border-radius: 5px; }
+  nav#toc a:hover { background: var(--bg-soft); color: var(--accent); }
+  nav#toc a.l1 { font-weight: 600; color: var(--ink); margin-top: 10px; }
+  nav#toc a.l2 { padding-left: 22px; }
+  main { flex: 1; min-width: 0; padding: 40px 56px 120px 48px; max-width: 860px; }
+  header.doc-header { margin-bottom: 48px; padding-bottom: 28px; border-bottom: 1px solid var(--line); }
+  header.doc-header h1 { font-size: 30px; margin: 0 0 10px; line-height: 1.3; }
+  header.doc-header .meta { color: var(--ink-soft); font-size: 14px; }
+  header.doc-header .meta span { margin-right: 16px; }
+  h2 { font-size: 23px; margin: 56px 0 16px; padding-top: 16px; border-top: 2px solid var(--line); line-height: 1.4; }
+  h2 .no { color: var(--accent); margin-right: 10px; }
+  h3 { font-size: 18px; margin: 36px 0 12px; }
+  p { margin: 12px 0; }
+  ul, ol { padding-left: 24px; margin: 10px 0; }
+  li { margin: 4px 0; }
+  a { color: var(--accent); }
+  code { font-family: "Cascadia Code", "JetBrains Mono", Consolas, monospace; font-size: 13px; background: var(--code-bg); padding: 2px 6px; border-radius: 4px; }
+  pre { background: #282c34; color: #dfe3ea; padding: 16px 18px; border-radius: 8px; overflow-x: auto; font-size: 13px; line-height: 1.65; margin: 16px 0; }
+  pre code { background: none; color: inherit; padding: 0; }
+  pre .c { color: #7f8c98; }
+  table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 14px; line-height: 1.6; }
+  th, td { border: 1px solid var(--line); padding: 8px 12px; text-align: left; vertical-align: top; }
+  th { background: var(--bg-soft); font-weight: 600; white-space: nowrap; }
+  tr:nth-child(even) td { background: #fafbfc; }
+  .callout { margin: 16px 0; padding: 12px 18px; border-radius: 8px; border: 1px solid; font-size: 14.5px; }
+  .callout .tag { font-weight: 700; margin-right: 8px; }
+  .callout.warn { background: var(--warn-bg); border-color: var(--warn-line); }
+  .callout.danger { background: var(--danger-bg); border-color: var(--danger-line); }
+  .callout.ok { background: var(--ok-bg); border-color: var(--ok-line); }
+  .figure { background: var(--bg-soft); border: 1px solid var(--line); border-radius: 8px; padding: 18px 22px; margin: 18px 0; font-family: "Cascadia Code", Consolas, monospace; font-size: 13px; line-height: 1.7; white-space: pre; overflow-x: auto; }
+  .figcap { text-align: center; color: var(--ink-soft); font-size: 13px; margin-top: -8px; margin-bottom: 18px; }
+  footer.doc-footer { margin-top: 80px; padding-top: 24px; border-top: 1px solid var(--line); color: var(--ink-soft); font-size: 13px; }
+  @media (max-width: 980px) { nav#toc { display: none; } main { padding: 24px 20px 80px; max-width: 100%; } }
+  @media print { nav#toc { display: none; } main { max-width: 100%; padding: 0; } pre, table, .callout { page-break-inside: avoid; } }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<nav id="toc">
+  <div class="toc-title">cfg4ai 设计全书</div>
+  <div class="toc-sub">v0.3 · 2026-08-16 · 单文件完整版</div>
+  <ol>
+    <li><a class="l1" href="#ch1">1 · 这个项目是什么</a></li>
+    <li><a class="l1" href="#ch2">2 · 问题：AI 配置的碎片化困境</a></li>
+    <li><a class="l1" href="#ch3">3 · 设计哲学：四条第一性原理</a></li>
+    <li><a class="l1" href="#ch4">4 · 总体架构：Hub-and-Spoke</a></li>
+    <li><a class="l1" href="#ch5">5 · 统一中间表示 IR</a></li>
+    <li><a class="l2" href="#ch5-1">5.1 五层配置模型</a></li>
+    <li><a class="l2" href="#ch5-2">5.2 八类实体</a></li>
+    <li><a class="l2" href="#ch5-3">5.3 合并语义</a></li>
+    <li><a class="l2" href="#ch5-4">5.4 删除传播与墓碑</a></li>
+    <li><a class="l2" href="#ch5-5">5.5 保真承诺的边界</a></li>
+    <li><a class="l1" href="#ch6">6 · 迁移引擎</a></li>
+    <li><a class="l2" href="#ch6-1">6.1 六步管线</a></li>
+    <li><a class="l2" href="#ch6-2">6.2 规则优先，AI 兜底</a></li>
+    <li><a class="l2" href="#ch6-3">6.3 写入协议</a></li>
+    <li><a class="l1" href="#ch7">7 · 项目关联与指纹</a></li>
+    <li><a class="l1" href="#ch8">8 · 存储：SSOT 仓库</a></li>
+    <li><a class="l1" href="#ch9">9 · 跨平台支持</a></li>
+    <li><a class="l1" href="#ch10">10 · 安全设计</a></li>
+    <li><a class="l1" href="#ch11">11 · 命令行使用指南</a></li>
+    <li><a class="l1" href="#ch12">12 · 适配器生态与 20 工具地图</a></li>
+    <li><a class="l1" href="#ch13">13 · 质量保障：调研、评审与红队</a></li>
+    <li><a class="l1" href="#ch14">14 · 技术选型：为什么是 Go</a></li>
+    <li><a class="l1" href="#ch15">15 · 路线图</a></li>
+    <li><a class="l1" href="#ch16">16 · 边界与开放问题</a></li>
+    <li><a class="l1" href="#app-a">附录 A · 文档索引</a></li>
+    <li><a class="l1" href="#app-b">附录 B · 术语表</a></li>
+  </ol>
+</nav>
+
+<main>
+<header class="doc-header">
+  <h1>cfg4ai 设计全书<br><small style="font-size:17px;color:var(--ink-soft);font-weight:400">AI 编码工具配置的采集、治理与迁移系统 · 完整设计说明</small></h1>
+  <div class="meta">
+    <span>版本 v0.3（已评审）</span>
+    <span>日期 2026-08-16</span>
+    <span>状态：设计冻结候选，P0 待动工</span>
+    <span>正式名 <code>cfg4ai</code>（2026-08-17 定名）</span>
+  </div>
+</header>
+
+<!-- ==================== 第 1 章 ==================== -->
+<h2 id="ch1"><span class="no">1</span>这个项目是什么</h2>
+
+<p><strong>cfg4ai 是一个面向 AI 编码工具的个人配置管理与迁移系统。</strong>它做的事情用一句话说：把你散落在 Claude Code、Codex、VS Code Copilot、Zhanlu（湛卢）、Gemini CLI 等各种 AI 编程工具里的配置——指令文件（CLAUDE.md / AGENTS.md）、MCP 服务器、skills、agents、commands、hooks、权限设置——统一采集到一个"单一事实源"仓库里管起来，然后可以在任何时刻、把这些配置<strong>字段级保真地交付给任何一个已接入的工具</strong>——主流或非主流（如 mobile coder）都行；尚未接入的新工具，补一个适配器即可纳入交付范围。</p>
+
+<p>它解决三类日常痛点：</p>
+<ul>
+  <li><strong>换工具</strong>：今天用 Claude Code，明天团队要求用 Codex——你在 CLAUDE.md 里沉淀了半年的编码规范，难道手工抄一遍再逐句改格式？</li>
+  <li><strong>换机器 / 重装系统</strong>：Windows 工作站、家里的 macOS、公司的麒麟 Linux 服务器，三处配置如何一致？</li>
+  <li><strong>配置治理</strong>：全局配置和项目配置混在一起，删了什么东西没人记得，MCP 服务器里的 API key 明文躺在各个目录——你甚至不确定自己到底有哪些配置。</li>
+</ul>
+
+<p>用 30 秒理解它的工作方式：</p>
+<pre><code><span class="c"># 1. 看看本机有哪些 AI 工具配置</span>
+cfg4ai scan
+
+<span class="c"># 2. 全部采集进统一仓库（自动识别敏感信息并抽取到系统钥匙串）</span>
+cfg4ai collect
+
+<span class="c"># 3. 把配置交付给另一个工具（先预览，确认后落盘）</span>
+cfg4ai export --to codex --dry-run
+cfg4ai export --to codex
+
+<span class="c"># 或者一步到位</span>
+cfg4ai migrate --from claude-code --to zhanlu --ai</code></pre>
+
+<p>本文档是这个项目的完整设计说明。它由四份技术规格文档（总体架构、IR 数据模型、CLI 规范、适配器规范）、一轮五维专家评审、一轮覆盖 20 个工具的生态调研与红队对抗审计合并而成，适合从头通读。如果你只想快速了解设计要点，读第 3、4、5 章即可。</p>
+
+<!-- ==================== 第 2 章 ==================== -->
+<h2 id="ch2"><span class="no">2</span>问题：AI 配置的碎片化困境</h2>
+
+<p>2025 年以来，AI 编码工具从"插件"演化为"平台"，每个工具都发展出了自己的一套配置生态。问题是：<strong>每家都是私有格式，互不通用</strong>。</p>
+
+<table>
+  <tr><th>配置内容</th><th>Claude Code</th><th>Codex CLI</th><th>VS Code Copilot</th><th>Zhanlu</th><th>Gemini CLI</th></tr>
+  <tr><td>指令/记忆文件</td><td><code>CLAUDE.md</code></td><td><code>AGENTS.md</code></td><td><code>.github/copilot-instructions.md</code></td><td><code>AGENTS.md</code></td><td><code>GEMINI.md</code></td></tr>
+  <tr><td>配置目录</td><td><code>~/.claude/</code> + <code>.claude/</code></td><td><code>~/.codex/</code></td><td><code>.vscode/</code> + user profile</td><td><code>~/.config/zhanlu/</code> + <code>.kilo/</code></td><td><code>~/.gemini/</code> + <code>.gemini/</code></td></tr>
+  <tr><td>MCP 配置</td><td><code>.mcp.json</code>（<code>mcpServers</code> 键）</td><td><code>config.toml</code> 的 <code>[mcp_servers]</code></td><td><code>.vscode/mcp.json</code>（<code>servers</code> 键）</td><td>主配置内 mcp 段（待校准）</td><td>settings.json 的 <code>mcpServers</code> 键</td></tr>
+  <tr><td>能力单元</td><td>skills / agents / commands / hooks</td><td>skills / profiles / execpolicy</td><td>instructions / prompts / agents</td><td>skills / agents / commands</td><td>settings / GEMINI.md 体系</td></tr>
+  <tr><td>格式</td><td>JSON / Markdown</td><td>TOML / Markdown / Starlark</td><td>JSONC / Markdown</td><td>JSON(C) / Markdown</td><td>JSON / Markdown</td></tr>
+</table>
+
+<p>这还只是五个工具。我们在生态调研中系统核查了 20 个工具（见第 12 章），每个都有自己的概念模型：Cursor 有四种规则激活模式和团队强制规则，Roo Code 有 custom modes（人格+工具权限+文件白名单的复合体），Goose 有 recipes（带参数和重试的工作流编排），Windsurf 有 AI 自动生成的 memories……碎片化的程度远超"换个文件名"这么简单。</p>
+
+<p>碎片化的代价具体而微：</p>
+<ul>
+  <li>迁移靠手工复制粘贴 + 凭感觉改写，丢三落四是常态；</li>
+  <li>配置没有版本管理，改坏了回不去；</li>
+  <li>API key 等敏感信息以明文散落于各处 <code>env</code> 字段；</li>
+  <li>项目目录一搬家，"这个项目该用哪套配置"就断了线索；</li>
+  <li>换操作系统（尤其是国产麒麟 Linux）时，连"配置文件在哪"都要重新考古。</li>
+</ul>
+
+<div class="callout warn"><span class="tag">设计输入</span>这些痛点直接决定了项目的四个功能目标：<strong>G1</strong> 统一采集治理、<strong>G2</strong> 全局/项目双层模型、<strong>G3</strong> 项目关联与重定位、<strong>G4</strong> 跨工具迁移交付；以及一个平台目标 <strong>G5</strong>：Windows / macOS / Linux（含麒麟）全平台可用。</div>
+
+<!-- ==================== 第 3 章 ==================== -->
+<h2 id="ch3"><span class="no">3</span>设计哲学：四条第一性原理</h2>
+
+<p>在展开所有设计细节之前，先交代这个项目做决策的"公理层"。后面每一章的具体机制，都可以回溯到这四条原理——它们也是本项目接受或拒绝一个设计方案的判据。</p>
+
+<h3>原理一：信息守恒是迁移唯一可证明的正确性标准</h3>
+<p>两个工具的能力集不同（Claude Code 早有 subagent，VS Code Copilot 的 agents 体系则成熟得晚得多），数学上不存在任意两者之间的无损双射。所以"零丢失"的承诺不能建立在"完美映射"上，只能建立在<strong>"原始数据永远可达"</strong>上。由此导出系统的骨架分工：<strong>原始文件的快照（blobs）是事实层，IR 只是其上的索引与视图</strong>。任何 IR 表达不了的内容，blob 兜底。这是对抗模型不完备的保险丝。</p>
+
+<h3>原理二：IR 的表达力上限 = 调研的完备性</h3>
+<p>统一数据模型（IR）的标准字段，本质上是各工具配置 schema 的"交集的泛化"；私有扩展位（<code>x-&lt;tool&gt;</code>）是"差集的容器"。<strong>调研漏一个维度，模型就漏一个维度，数据就在这个维度上静默丢失</strong>——而且最危险的是，这种丢失连测试都发现不了（因为测试也是基于同样的不完备认知写的）。这就是为什么本项目在动工前先做了一轮深调研：对 5 个适配目标做了约 850 个字段的逐字段清点，另对 15 个扩展工具做了调研卡片式的压力测试（第 13 章），而不是边写边补。</p>
+
+<h3>原理三：导出的本质是投影，投影的正确性由能力矩阵决定</h3>
+<p>导出到某个工具，就是把统一模型"投影"到该工具能力所支撑的子空间；投影不下的部分，以最低损耗的形式携带过去（比如降级为目标文件里的一段附录注释，而不是直接扔掉）。每个适配器必须如实声明自己的能力矩阵（支持/部分支持/不支持），投影的规则才有据可依。</p>
+
+<h3>原理四：正确性无法正向证明，只能靠证伪机制逼近</h3>
+<p>永远无法证明"所有迁移都正确"，只能建立"出错必被发现"的机制。因此系统内建了层层证伪手段：导出后重新导入做语义对比（round-trip 自检）、golden-file 测试、38 条对抗用例回归、真实世界样本回归。<strong>发现不了问题 ≠ 没有问题</strong>——这条谦逊原理贯穿了从写入协议到安全设计的所有章节。</p>
+
+<!-- ==================== 第 4 章 ==================== -->
+<h2 id="ch4"><span class="no">4</span>总体架构：Hub-and-Spoke</h2>
+
+<p>最朴素的做法是给每两个工具之间写一个转换器。但 N 个工具需要 N×(N-1) 个转换器，且每新增一个工具都要改写所有已有转换器——这条路在组合上就是死路。</p>
+
+<p>cfg4ai 采用编译器领域的经典解法（LLVM 同款思路）：定义一套<strong>统一中间表示（IR, Intermediate Representation）</strong>作为枢纽（hub），每个工具只需实现一对"导入器/导出器"（spoke）。N 个工具只需要 2N 个适配器，新增工具 = 新增一个适配器，与存量零耦合。</p>
+
+<div class="figure">Claude Code ──┐
+Codex CLI  ───┤ Importer →  【 IR / SSOT 仓库 】  → Exporter ├──→ Claude Code
+Copilot    ───┤                                          ├──→ Codex
+Zhanlu     ───┘                                          └──→ 任意新工具</div>
+<p class="figcap">图 4-1 · Hub-and-Spoke 架构：复杂度从 O(N²) 降到 O(N)</p>
+
+<p>让这个架构真正成立的，是两个支撑机制：</p>
+
+<h3>4.1 扩展命名空间 x-&lt;tool&gt;：保证往返无损</h3>
+<p>每个工具都有自己特有的字段（Claude 的 hooks 细节、Codex 的 sandbox 策略）。导入时，这些无法映射到 IR 标准字段的内容被原样收进 <code>x-claude-code</code>、<code>x-codex</code> 这样的扩展位；之后无论配置被迁移到多少其他工具，这些扩展位都<strong>只读透传</strong>；一旦导出回原来的工具，它们被原样还原。其生命周期规则只有三句话：</p>
+<ul>
+  <li><code>x-&lt;tool&gt;</code> 绑定"最近一次源自该工具的导入"；</li>
+  <li>异构工具再采集，只更新标准字段和自己的扩展位，绝不碰别家的；</li>
+  <li>导出回某工具时，标准字段以最新值为准，扩展位只负责补回该工具特有的字段。</li>
+</ul>
+<p>这三条规则使得"A→B→C 再多跳跳回 A"的多跳迁移也有明确的保真语义。</p>
+
+<h3>4.2 来源追踪 origin：每个条目都知道自己从哪来</h3>
+<p>每个 IR 条目都携带来源信息：来自哪个工具、哪个文件（以 <code>~/</code> 或 <code>%APPDATA%</code> 变量形态记录，保证跨机器可移植）、什么时候采集的、原始内容 hash 是多少。这支撑了三个能力：增量采集（hash 没变就跳过）、差异审计（SSOT 与磁盘现状对比）、以及第 6 章提到的回写路由（老条目写回原文件）。</p>
+
+<!-- ==================== 第 5 章 ==================== -->
+<h2 id="ch5"><span class="no">5</span>统一中间表示 IR</h2>
+
+<p>IR 是整个系统的心脏。它以 YAML + Markdown 的形态存储，设计目标是四个词：<strong>可校验、可合并、可往返、Git 友好</strong>。</p>
+
+<h3 id="ch5-1">5.1 五层配置模型</h3>
+
+<p>先澄清一个口径：第 2 章目标 G2 说的"全局/项目双层"，是<strong>物化语义</strong>的主干（导出时就是全局与项目两层合并）；但在<strong>采集侧</strong>，真实世界的层级远不止两层。初版设计只有"全局/项目"两层，生态调研立刻击穿了这个假设：Claude Code 有 <code>settings.local.json</code>（项目内的私人层，不入 git），Cursor 有团队下发的强制规则，OpenCode 支持 MDM 企业托管层，Gemini 的 settings 事实上有四层。于是 v0.3 把配置层级扩展为五层：</p>
+
+<table>
+  <tr><th>层级</th><th>优先级</th><th>含义</th><th>真实例子</th><th>系统行为</th></tr>
+  <tr><td><code>managed</code></td><td>最高</td><td>企业/组织下发</td><td>Claude managed settings、OpenCode MDM、Windsurf System 层</td><td>只读采集，供审计比对，<strong>不参与导出物化</strong>（管理权在企业侧）</td></tr>
+  <tr><td><code>remote</code></td><td>高</td><td>组织远程订阅</td><td>Cursor 团队规则、OpenCode remote 配置源</td><td>采集并可参与合并</td></tr>
+  <tr><td><code>local</code></td><td>中</td><td>项目内私人层</td><td><code>.claude/settings.local.json</code>、<code>CLAUDE.local.md</code></td><td>参与合并；<strong>不同步</strong>（私人内容不上远端）</td></tr>
+  <tr><td><code>project</code></td><td>低</td><td>项目级</td><td><code>&lt;proj&gt;/CLAUDE.md</code>、<code>.mcp.json</code></td><td>参与合并</td></tr>
+  <tr><td><code>global</code></td><td>最低</td><td>用户级</td><td><code>~/.claude/CLAUDE.md</code>、<code>~/.codex/config.toml</code></td><td>参与合并，作为基底</td></tr>
+</table>
+
+<h3 id="ch5-2">5.2 八类实体</h3>
+
+<p>对 5 个适配目标的约 850 个配置字段逐字段清点、并用 15 个扩展工具的独特概念逐一压力测试之后，它们最终被归纳为八类实体。这个归纳不是拍脑袋——每一类都有明确的现实对应物，每一个标准字段都能说出"它在哪几个工具里存在"：</p>
+
+<table>
+  <tr><th>实体</th><th>承载什么</th><th>现实对应</th></tr>
+  <tr><td><strong>Instruction</strong><br>指令/记忆</td><td>给 AI 的长文指令，支持 <code>@path</code> 引用、文件作用域（glob）、子目录作用域、激活方式</td><td>CLAUDE.md、AGENTS.md、GEMINI.md、copilot-instructions.md、.cursor/rules、.goosehints</td></tr>
+  <tr><td><strong>McpServer</strong></td><td>MCP 服务器：传输方式（stdio/sse/http/ws）、命令、参数、环境变量、超时、工具白名单、OAuth</td><td>.mcp.json、config.toml <code>[mcp_servers]</code>、.vscode/mcp.json</td></tr>
+  <tr><td><strong>Skill / Agent / Command</strong><br>（统称 PromptPack）</td><td>命名的 prompt 包：描述、激活方式、模型偏好、工具白名单、绑定的 MCP、参数提示</td><td>SKILL.md、.claude/agents/、.github/prompts/、.kilo/agent/、Roo custom modes</td></tr>
+  <tr><td><strong>Workflow</strong></td><td>工作流：参数、有序步骤、重试</td><td>Windsurf workflows、Goose recipes（公共面）</td></tr>
+  <tr><td><strong>Hook</strong><br>（v0.3 新增）</td><td>事件钩子：事件名、匹配器、处理器（命令/http/prompt），含 Windows 双命令</td><td>Claude hooks（31 事件）、Codex hooks（11 事件）、Junie hooks、Trae hooks</td></tr>
+  <tr><td><strong>Setting</strong></td><td>工具自身设置的键值对（嵌套结构作为不透明值）</td><td>settings.json、config.toml 的其余键</td></tr>
+  <tr><td><strong>Secret 引用</strong></td><td>敏感值的占位符（值本体在系统钥匙串/加密文件）</td><td>各工具 env/headers 里的 API key</td></tr>
+</table>
+
+<p>其中 Hook 成为一等实体是调研的直接产物：Claude 的 31 个 hook 事件、Codex 的 11 个、JetBrains Junie 的 7 个在语义上高度重叠（都有会话开始、工具调用前后、通知、停止等），标准化条件成熟；各家的交集事件名构成标准枚举，各家特有事件进扩展位。</p>
+
+<p>另一个值得一提的归纳是<strong>激活方式 <code>activation</code></strong>。Cursor 的规则有四种激活模式（始终生效/模型判断/按文件 glob/手动 @），Windsurf 有 <code>trigger</code> 四态，JetBrains 有五态，Zhanlu 的 skill 靠 description 语义路由——这些看似各异的概念，公共面是同一个枚举：<code>always | model-decision | glob | manual | scene</code>。这就是"交集泛化为标准字段"的典型一例。</p>
+
+<h3 id="ch5-3">5.3 合并语义：继承与覆盖的精确规则</h3>
+
+<p>"项目配置继承全局配置"说起来一句话，真正的魔鬼在细节里。系统定义了三种合并策略，每种都有精确语义：</p>
+
+<ul>
+  <li><strong>merge-by-id（浅字段级合并）</strong>：同一个 id 的条目，项目层出现的字段覆盖全局同名字段，<strong>数组字段整体替换</strong>（不逐项合并），项目层没写的字段继承全局。举例：全局定义了 MCP server 的 8 个字段，项目层只想调整环境变量——只需重写 <code>env</code> 这一个字段（该字段作为整体覆盖全局值），其余 7 个未写字段自动继承全局。</li>
+  <li><strong>concat（层级序拼接）</strong>：用于指令类。先按层级分层（全局在前、项目在后——因为后出现的指令语境上更"近"），层内按优先级数值排序，同值再按来源路径字典序。多条指令物化回单个文件时，用 <code>&lt;!-- cfg4ai:begin &lt;id&gt; --&gt;</code> 边界注释分隔，下次采集还能还原成独立条目。</li>
+  <li><strong>entry-replace</strong>：单值场景的整条替换。</li>
+</ul>
+
+<p>还有一条重要原则：<strong>IR 的合并语义是唯一权威，不随目标工具改变</strong>。现实世界里各工具的合并行为并不一致——Claude 的 settings 数组是跨层级拼接去重的，Codex 用正极性的 <code>enabled</code>（IR 用 <code>disabled</code>），Cline 的 skills 是全局优先于项目（与直觉相反）。这些差异全部登记在适配器规范的"目标语义差异表"里，由各适配器在导入/导出的双向转换中自行消化，IR 层保持干净。</p>
+
+<h3 id="ch5-4">5.4 删除传播与墓碑：红队逼出来的设计</h3>
+
+<p>初版设计里，增量采集靠内容 hash 检测"变更"。红队审计指出了一个致命盲区：<strong>hash 能发现变化，发现不了消失</strong>——而且更可怕的是"假消失"。设想：你的移动硬盘掉线了，上面的项目配置目录暂时不可读。采集程序发现"上次采集的条目这次全都不见了"，如果把它当作"用户全删了"处理，打上删除标记，下次导出就会把这些"已删除"的配置从所有工具里清掉——一次盘掉线演变成配置清空事故。</p>
+
+<p>v0.3 的完整删除语义由此定为四条规则：</p>
+<ol>
+  <li><strong>防误判</strong>：源目录不存在/不可读 → 中止该位置采集并告警，<strong>绝不</strong>标记删除；只有目录健在而条目消失，才标记墓碑（<code>tombstone</code>）。</li>
+  <li><strong>遮蔽规则</strong>：项目层删除了某个全局也有的条目时，项目层墓碑要<strong>遮蔽</strong>全局同 id 条目——否则"已删除"的配置会从全局层"复活"。</li>
+  <li><strong>边界限定</strong>：墓碑 reconcile 只作用于本次实际采集的位置集合，多个 clone 共存同一 profile 时互不踩踏。</li>
+  <li><strong>空集保护</strong>：合并后的有效配置如果一条都不剩，而目标工具里明明还有文件——拒绝导出，必须 <code>--force</code> 加显式警告（<code>--yes</code> 也不豁免此项）。</li>
+</ol>
+
+<h3 id="ch5-5">5.5 保真承诺的边界（诚实清单）</h3>
+
+<p>与其含糊承诺"零丢失"，不如把承诺分级写清楚：</p>
+<ul>
+  <li><strong>强承诺：字段级零丢失</strong>。所有语义字段经扩展位往返一致。</li>
+  <li><strong>显式免责：文档层不保证</strong>。JSONC/TOML 的注释、键的顺序、排版格式，经 YAML 中转后不保证保留。</li>
+  <li><strong>可选兜底</strong>：对注释密度高的源文件，可以把原文整体存快照（<code>raw_blob</code>），导出时选择"以原文为底做字段级补丁"（overlay 模式）而非全量重渲染。</li>
+</ul>
+
+<!-- ==================== 第 6 章 ==================== -->
+<h2 id="ch6"><span class="no">6</span>迁移引擎</h2>
+
+<h3 id="ch6-1">6.1 六步管线</h3>
+
+<p>一次导出（export）在引擎内部的完整旅程：</p>
+
+<div class="figure">Load      加载 profile（全局 + 项目）
+  ↓
+Merge     五层合并（含墓碑遮蔽）→ 得到有效配置
+  ↓
+Map       IR 映射为目标工具模型（规则引擎，确定性）
+  ↓
+Assist    （可选）AI 语义转换——引擎层主导，适配器不感知
+  ↓
+Render    渲染为目标格式（YAML/JSON/TOML/Markdown）
+  ↓
+Verify    两级校验：格式校验（必做）+ round-trip 自检（尽力）
+  ↓
+Write     写入协议落盘（见 6.3）</div>
+
+<p>其中 Verify 的 round-trip 自检值得单独解释：导出完成后，引擎会拿着写入清单（<code>Export</code> 返回的 <code>[]WrittenFile</code>）把刚写的文件<strong>再导入一遍</strong>，与导出前的模型做语义对比。差异（扣除白名单内的已知降级项）会逐条列给用户。这是"原理四"的直接体现——不假设转换是对的，而是每次转换后都尝试证伪它。</p>
+
+<h3 id="ch6-2">6.2 规则优先，AI 兜底</h3>
+
+<p>系统里有两类转换，分界刻意划得很清楚：</p>
+
+<table>
+  <tr><th>转换类型</th><th>方式</th><th>例子</th></tr>
+  <tr><td>确定性字段映射</td><td>规则引擎（代码）</td><td><code>mcpServers</code> → <code>servers</code> 键名转换</td></tr>
+  <tr><td>格式重组</td><td>模板渲染</td><td><code>skills/*.md</code> → <code>.github/prompts/*.prompt.md</code></td></tr>
+  <tr><td>语义改写</td><td>AI 接口</td><td>把 Claude skill 描述润色成 Copilot prompt 风格</td></tr>
+  <tr><td>冲突合并建议</td><td>AI 接口</td><td>目标已有同 id 条目时给出合并建议</td></tr>
+  <tr><td>语言适配</td><td>AI 接口</td><td>中文指令 ↔ 英文指令（目标工具对英文更友好时）</td></tr>
+</table>
+
+<p>围绕 AI 的三条铁律：</p>
+<ol>
+  <li><strong>职责归属引擎层</strong>。适配器只做格式双向转换，完全不接触 AI——这样适配器可以脱离 AI 独立做 golden-file 测试，AI 也不会成为格式正确性的变量。</li>
+  <li><strong>结果必须经人确认</strong>。AI 转换永远先以 dry-run 形式预览差异；<code>--yes</code>（CI 模式）也不豁免这项确认，无人值守场景必须显式加 <code>--ai-approve</code>，且会留下决策日志。</li>
+  <li><strong>出域必须知情同意（consent）</strong>。首次使用 AI 功能时显式告知端点和发送内容类别；<strong>AI 配置（端点/模型）一旦被改动——包括被 git 同步下来的改动——下次使用前强制重新确认</strong>（这条是红队"端点投毒"用例的直接修复）。另外，没有配置 AI 时系统完全可用，语义转换退化为"原样搬运 + 警告"。</li>
+</ol>
+
+<h3 id="ch6-3">6.3 写入协议：把文件写对是门手艺</h3>
+
+<p>配置工具最败人品的行为就是把用户文件写坏。写入协议用一组硬性规则把这件事管住：</p>
+
+<ul>
+  <li><strong>单文件原子</strong>：先写临时文件（必须和目标<strong>同卷同目录</strong>——跨盘 rename 在 Linux 直接报错、Windows 直接失败），写完 fsync，再 rename 覆盖，最后 sync 父目录。</li>
+  <li><strong>批量不承诺原子，承诺可回滚</strong>：一批文件先把临时文件全部就位，再逐一 rename；中途失败则逆序清理 + 自动恢复快照。措辞从"不留半成品"修正为"单文件原子，批量以快照补偿"——这是对原子性承诺的诚实降级。</li>
+  <li><strong>Windows 占用重试</strong>：杀毒软件、搜索索引、正在运行的 IDE 都可能瞬时锁定目标文件，rename 遇到共享冲突时指数退避重试，终失败则明确报出"哪个文件被谁占用"。</li>
+  <li><strong>符号链接穿透</strong>：很多用户把 <code>~/.claude</code> 软链到 dotfiles 仓库。写入前必须解析到真实路径再写——否则原子替换会把链接本身换成普通文件，静默破坏用户布局。</li>
+  <li><strong>外来内容识别</strong>：系统持久化一份"导出清单"（哪个文件、什么时候、内容 hash 是什么）。下次导出前比对：文件不在清单里＝外来内容，要确认；在清单但 hash 变了＝被外部改过，要确认；一致＝本工具产物，直接覆盖。确认选项固定为四种：覆盖 / 跳过 / 看差异 / 备份后覆盖。比对前先做字节级规范化（换行符、BOM），防止 IDE 自重写格式造成"确认疲劳"。</li>
+  <li><strong>热重载提醒</strong>：探测到目标 IDE 正在运行时，导出会提示"部分设置需重启或 Reload Window 生效"。</li>
+</ul>
+
+<!-- ==================== 第 7 章 ==================== -->
+<h2 id="ch7"><span class="no">7</span>项目关联与指纹</h2>
+
+<p>项目配置只有知道"自己属于哪个目录"才有意义。系统在注册表（<code>registry.yaml</code>）里维护"项目 ID ↔ 磁盘路径 ↔ 配置档案"的绑定，并解决两个棘手问题：</p>
+
+<h3>7.1 项目搬家了怎么办——指纹重定位</h3>
+<p>目录从 <code>D:\proj</code> 迁到 <code>F:\proj</code> 后，在新位置执行 <code>cfg4ai relink</code>，系统凭<strong>项目指纹</strong>重新认亲。指纹按优先级取：规范化后的 git remote 地址（统一剥掉协议差异、尾部 <code>.git</code>、host 小写、scp 风格转标准形式——否则 <code>git@github.com:u/r.git</code> 和 <code>https://github.com/u/r</code> 会被当成两个项目）＞ 根目录名+首次提交 hash ＞ 根目录名。</p>
+
+<h3>7.2 防张冠李戴——两道判别</h3>
+<p>红队构造了两个"身份劫持"场景，v0.3 均已封堵：</p>
+<ul>
+  <li><strong>同名不同源</strong>：同一个 remote 在公司和家里各 clone 了一份，它们不是同一个"项目实例"。规则：指纹命中后还要首次提交 hash 一致并经用户确认才合并；否则新建项目 ID，只记录 <code>same_remote_as</code> 亲缘关系。</li>
+  <li><strong>路径复用</strong>：目录改名后，原地新建了一个同名的<strong>不同</strong>项目。旧规则下采集会"路径命中即采"，把新项目的内容写进旧项目的档案。规则：<strong>即使路径直接命中注册项，采集时仍复核指纹</strong>，不匹配就警告并建议 relink。</li>
+</ul>
+
+<!-- ==================== 第 8 章 ==================== -->
+<h2 id="ch8"><span class="no">8</span>存储：SSOT 仓库</h2>
+
+<p>所有知识都存在一个纯文本、Git 友好的仓库里，默认位置遵循各平台规范（<code>$XDG_CONFIG_HOME/cfg4ai</code>、<code>%APPDATA%\cfg4ai</code>、<code>~/Library/Application Support/cfg4ai</code>）：</p>
+
+<div class="figure">$CFG4AI_HOME/
+├── config.yaml            <span class="c"># 自身配置：AI provider、secret 后端、合并策略</span>
+├── registry.yaml          <span class="c"># 项目注册表</span>
+├── profiles/
+│   ├── global/            <span class="c"># 全局档案（与项目档案结构同构）：manifest + instructions/ + mcp.yaml +</span>
+│   └── projects/&lt;pid&gt;/  <span class="c">#   skills/ + agents/ + commands/ + workflows/ + hooks.yaml + settings.yaml</span>
+├── exports/               <span class="c"># 导出清单（外来内容识别的依据，随库同步）</span>
+├── snapshots/             <span class="c"># 快照：manifest + blob 引用（天然去重）</span>
+├── blobs/                 <span class="c"># 脱敏后的原始内容寻址存储（不入库）</span>
+├── secrets.age            <span class="c"># 可选：加密文件 secret 后端（0600，强制 gitignore）</span>
+├── cache/  logs/          <span class="c"># 不入库</span>
+└── .lock                  <span class="c"># 仓库级写锁</span></div>
+
+<p>三个设计决定值得说明：</p>
+<ul>
+  <li><strong>不用数据库</strong>。索引直接走文件系统，保持 KISS——整个仓库 <code>git init</code> 推到私有远端就是跨机同步。</li>
+  <li><strong>并发有锁</strong>。写操作全程持跨平台文件锁（两个终端同时跑 collect、sync 与本地写入竞争，都被串行化）；锁持有者异常死亡由 <code>doctor</code> 检测清理。</li>
+  <li><strong>权限收紧</strong>。仓库目录 0700、文件 0600，每次写后校验（多用户 Linux/麒麟服务器上，默认 umask 会让你的私有编码规范全员可读）；检测到仓库被放在 OneDrive 等云同步目录会强警告（既有泄露风险，云盘的文件锁还会击穿原子写入）。</li>
+  <li><strong>大体积内容与配置分开放</strong>。Windows 上配置与元数据放 <code>%APPDATA%</code>（Roaming），快照/blobs/缓存等大体积内容落 <code>%LOCALAPPDATA%</code>——避免大文件随域漫游同步。</li>
+</ul>
+
+<!-- ==================== 第 9 章 ==================== -->
+<h2 id="ch9"><span class="no">9</span>跨平台支持</h2>
+
+<p>目标平台六个构建目标：<code>windows/amd64</code>、<code>darwin/amd64</code>、<code>darwin/arm64</code>、<code>linux/amd64</code>、<code>linux/arm64</code>、<code>linux/loong64</code>（龙芯，标注未实测）。麒麟 Kylin 按 Linux 处理——但"能编译"和"能跑好"之间隔着一整套工程纪律：</p>
+
+<h3>9.1 麒麟适配的关键：静态编译纪律</h3>
+<p>银河麒麟 V10 服务器版是 openEuler 血统（glibc 2.28、内核 4.19），桌面版是 UKUI/deb 生态，两系系统库差异真实存在。Go 的 <code>CGO_ENABLED=0</code> 纯静态编译产物只依赖内核系统调用 ABI，可以把 glibc 版本、包生态分裂全部免疫——一套 linux 二进制通吃 Ubuntu/CentOS/openEuler/Kylin。<strong>但这个红利是易失的</strong>：任何一个引入 CGO 的依赖都会把 glibc 地板抬回来。因此纪律写死：发布构建强制 <code>CGO_ENABLED=0</code>，CI 对全部目标断言产物确为静态（ldd 检查），并在麒麟 V10 服务器（headless）+ UKUI 桌面两类环境跑冒烟矩阵。</p>
+
+<h3>9.2 平台差异处理清单</h3>
+<table>
+  <tr><th>差异点</th><th>策略</th></tr>
+  <tr><td>配置目录约定</td><td><code>platform/paths</code> 包统一封装 XDG / %APPDATA% / Application Support 差异</td></tr>
+  <tr><td>换行符</td><td><strong>保持源文件原有风格</strong>（采集时探测记录），未知则 LF；绝不默认按平台转换（那会让 round-trip 对比产生假漂移、让 git diff 噪音爆炸）；仓库内置 <code>.gitattributes</code> 钉死 <code>eol=lf</code></td></tr>
+  <tr><td>符号链接</td><td>采集默认 lstat 不跟随（防止链接指向 <code>~/.aws/credentials</code> 这类文件时被越权读入）；写入穿透解析；导出回 Unix 还原链接、Windows 降级复制并告警</td></tr>
+  <tr><td>文件权限位</td><td>IR 中用 <code>mode</code> 字段保留（skill 附带的可执行脚本不能丢执行位），Windows 忽略</td></tr>
+  <tr><td>Windows 长路径</td><td>嵌入 <code>longPathAware</code> manifest；doctor 报告基准路径长度风险</td></tr>
+  <tr><td>分发签名</td><td>macOS 签名 + notarytool 公证（否则 Gatekeeper 直接拒执行）；Windows 代码签名（否则 SmartScreen 蓝屏警告）；无证书期走 Homebrew/Scoop/winget 渠道</td></tr>
+</table>
+
+<!-- ==================== 第 10 章 ==================== -->
+<h2 id="ch10"><span class="no">10</span>安全设计</h2>
+
+<p>安全设计围绕一个核心承诺展开：<strong>secret 明文永不进入仓库、永不上远端</strong>。红队审计把这条承诺逼出了三个真实漏洞，修复后形成了现在的纵深防御。</p>
+
+<h3>10.1 Secret 三级后端降级链</h3>
+<p>敏感值（API key、token）采集时即被抽取，仓库里只留下 <code>secretref://cfg4ai/&lt;profile&gt;/&lt;entity-id&gt;/&lt;field&gt;</code> 占位符。值本体按降级链存储：</p>
+<ol>
+  <li><strong>系统钥匙串</strong>（首选）：Windows Credential Manager / macOS Keychain / Linux Secret Service，经 99designs/keyring 统一抽象；</li>
+  <li><strong>加密文件</strong>（age 加密，0600 权限）：这是 headless 环境的唯一出路——Linux 钥匙串依赖桌面会话的 D-Bus 服务，麒麟服务器版、容器、SSH 会话、CI runner 上必然缺席；</li>
+  <li><strong>none</strong>：显式声明不存，导出物留占位符由人手工填写。</li>
+</ol>
+
+<h3>10.2 红队发现的三个漏洞与修复</h3>
+<div class="callout danger"><span class="tag">漏洞一</span><strong>blob 保真与脱敏自相矛盾</strong>。初版设计里 blobs 保真存储原始文件、且 sync 是全目录 git 同步、无任何排除规则——而 <code>~/.claude.json</code> 的 env 里明文 API key 是常态，两条叠加等于明文具化出域。修复是双管齐下：blob 只存<strong>脱敏后</strong>内容（双 hash 分工：原始 hash 用于增量比对、脱敏 hash 指向 blob；落盘管线强制"先扫描替换、后落盘、零命中校验才提交"）；同时 sync 改为白名单制，blobs、snapshots、logs 等一律排除在同步之外（这正是第 8 章目录树标注"不入库"的由来）。</div>
+<div class="callout danger"><span class="tag">漏洞二</span><strong>自由文本里的 secret 经同步上远端</strong>。用户在 CLAUDE.md 正文里贴了真实 key（教学示例里贴假 key 更是常见），扫描若改写正文会破坏内容，只警告又会随 <code>sync push</code> 上远端。修复：处置分级——结构化字段（env/headers/args）命中默认抽取（可否决），自由文本命中只警告不改写；同时 <strong>sync push 前增加全仓预检扫描</strong>，命中即阻断或显式确认，CI 不得对 sync 放行"部分成功"退出码。</div>
+<div class="callout danger"><span class="tag">漏洞三</span><strong>AI 端点投毒</strong>。<code>config.yaml</code> 在同步白名单内，恶意远端可经 pull 把 AI 端点改成攻击者地址，下次 <code>--ai</code> 你的私有编码规范就流向了第三方。修复：AI 配置段变更后强制重新 consent；日志默认只记元数据（不记 prompt 原文）；企业场景支持端点白名单。</div>
+
+<h3>10.3 敏感扫描</h3>
+<p>扫描规则库外置（对齐 gitleaks 规则集 + 高熵串检测），支持用户自定义规则和豁免清单。覆盖 <code>sk-*</code>、<code>ghp_</code>、<code>glpat-</code>、<code>xoxb-</code>、<code>AIza</code>、<code>hf_</code>、JWT（<code>eyJ</code> 前缀）、PEM 私钥头等模式。</p>
+
+<!-- ==================== 第 11 章 ==================== -->
+<h2 id="ch11"><span class="no">11</span>命令行使用指南</h2>
+
+<p>按使用场景而非命令字典来组织。完整 flag 与退出码定义见 <code>docs/CLI-SPEC.md</code>。</p>
+
+<h3>11.1 首次接管：发现并采集</h3>
+<pre><code><span class="c"># 只读扫描：本机有哪些工具、配置在哪、采过没有（还会提示目标 IDE 是否在运行）</span>
+cfg4ai scan
+
+<span class="c"># 采集全部新发现/已变更的配置；敏感值自动抽取为 secretref（可否决）</span>
+<span class="c"># 源目录不可读会中止该位置采集而不是误判为"全删了"</span>
+cfg4ai collect
+
+<span class="c"># 看看都收编了什么</span>
+cfg4ai list
+cfg4ai show mcp.filesystem</code></pre>
+
+<h3>11.2 迁移到另一个工具</h3>
+<pre><code><span class="c"># 预览：会创建/修改/跳过哪些文件，逐条 diff，不落盘</span>
+cfg4ai export --to codex --dry-run
+
+<span class="c"># 正式导出（自动快照、原子写入、round-trip 自检；有降级会逐条警告）</span>
+cfg4ai export --to codex
+
+<span class="c"># 带 AI 语义润色的迁移（AI 结果必须确认；配置变更后强制重新 consent）</span>
+cfg4ai migrate --from claude-code --to zhanlu --ai</code></pre>
+
+<h3>11.3 项目管理</h3>
+<pre><code><span class="c"># 把当前目录关联为一个项目（此后项目配置 = 全局 + 项目合并生效）</span>
+cfg4ai link .
+
+<span class="c"># 目录搬家后，在新位置重新认亲（凭 git 指纹，容忍改名）</span>
+cfg4ai relink</code></pre>
+
+<h3>11.4 后悔药与体检</h3>
+<pre><code><span class="c"># 任何写入前系统都会自动打快照；也可以手动打</span>
+cfg4ai snapshot create --note "大改前"
+cfg4ai snapshot list
+cfg4ai restore &lt;snapshot-id&gt; --dry-run
+
+<span class="c"># 全量自检：结构完整性、secret 悬空引用、锁残留、云同步目录风险、AI 连通性……</span>
+cfg4ai doctor
+
+<span class="c"># 跨机同步（白名单制：仅 profiles/registry/config/exports 入库；push 前强制全仓敏感扫描）</span>
+cfg4ai sync init git@github.com:me/cfg4ai-vault.git
+cfg4ai sync push</code></pre>
+
+<h3>11.5 退出码（CI 集成用）</h3>
+<table>
+  <tr><th>码</th><th>含义</th><th>CI 建议</th></tr>
+  <tr><td>0</td><td>成功</td><td>放行</td></tr>
+  <tr><td>5</td><td>部分成功（有降级/警告）</td><td>collect/export 可放行但留痕；<strong>sync 不放行</strong>（预检命中必须人工处置）</td></tr>
+  <tr><td>1/2/3/4</td><td>通用错误 / 用法错误 / 校验失败 / 用户中止</td><td>失败</td></tr>
+</table>
+
+<!-- ==================== 第 12 章 ==================== -->
+<h2 id="ch12"><span class="no">12</span>适配器生态与 20 工具地图</h2>
+
+<h3>12.1 适配器接口</h3>
+<p>每个适配器实现四个方法（Go 接口，全部带 <code>context.Context</code>）：</p>
+<pre><code>type Adapter interface {
+    Meta() ToolMeta                                    <span class="c">// 标识、版本护栏、能力矩阵</span>
+    Detect(ctx) ([]Location, error)                    <span class="c">// 只读探测（含进程运行检测）</span>
+    Import(ctx, loc) (*ir.Bundle, error)               <span class="c">// 工具格式 → IR</span>
+    Export(ctx, bundle, opts) ([]WrittenFile, error)   <span class="c">// IR → 工具格式（返回写入清单供自检）</span>
+}</code></pre>
+<p>配套规范十条，核心几条：Detect 不许写任何文件；表达不了的内容进扩展位绝不静默丢弃；写文件必须走统一的 atomicfile 通道；每个适配器声明新增条目的默认写入位置，对 <code>~/.claude.json</code> 这类"混杂运行时状态的文件"只许局部补丁、禁止整体重写；目标工具的合并语义差异登记到公共差异表。能力矩阵用三档（支持/部分支持/不支持+备注）表达，导出降级由此驱动。降级遵循两级规则：目标工具有最近概念就映射为该形态（如 Copilot 的 prompt 文件），没有则并入指令附录并保留元数据；降级结果逐条警告、可回滚。</p>
+
+<h3>12.2 已调研的 20 个工具</h3>
+<p>已调研工具共 20 个：其中 5 个做过逐字段清点（字段档案约 850 字段），15 个完成调研卡片（含配置地图、能力矩阵与 IR 压力测试）：</p>
+
+<table>
+  <tr><th>阶段</th><th>工具</th><th>一句话定位 / 独特概念</th></tr>
+  <tr><td rowspan="2"><strong>P0</strong></td><td>Claude Code</td><td>生态事实标准；31 个 hook 事件、skills 体系（commands 已并入 skills）、五层 settings</td></tr>
+  <tr><td>Codex CLI</td><td>OpenAI 终端 agent；config.toml ~160 键、profiles、Starlark 执行策略（不可翻译，保真存储）</td></tr>
+  <tr><td rowspan="5"><strong>P1</strong></td><td>VS Code Copilot</td><td>instructions/prompts/agents 三件套；Agent Host 新体系（~/.copilot/）；1.102 起 settings 内嵌指令大半废弃</td></tr>
+  <tr><td>Zhanlu 湛卢</td><td>本项目宿主环境；skills 语义路由；项目级 .kilo/ 约定（部分待校准）</td></tr>
+  <tr><td>Gemini CLI</td><td>settings ~240 键、四层模型；⚠️ 官方已启动向 Antigravity CLI 的过渡（2026-06-18 起）</td></tr>
+  <tr><td>Claude Desktop</td><td>Anthropic 桌面应用；MCP 配置的独立入口（claude_desktop_config.json），与 Claude Code 适配器共享代码，轻量接入</td></tr>
+  <tr><td>Grok Build</td><td>xAI 官方编码 agent；五层企业配置链、14 个 hook 事件、零配置兼容读取 Claude Code 生态</td></tr>
+  <tr><td rowspan="13"><strong>P2</strong><br>候选</td><td>Cursor</td><td>规则四激活模式、团队强制规则、远程规则订阅、nested AGENTS.md</td></tr>
+  <tr><td>Windsurf → Devin</td><td>品牌迁移中（双目录双读）；AI 自动生成 memories、System 企业层</td></tr>
+  <tr><td>Aider</td><td>极简终端派，一份 .aider.conf.yml；无 MCP，对 IR 压力最小</td></tr>
+  <tr><td>Cline</td><td>开放聚合派，主动兼容他工具规则文件；.clineignore 官方预告弃用</td></tr>
+  <tr><td>Roo Code</td><td>custom modes 集大成者：人格+工具权限+文件编辑白名单+规则目录绑定</td></tr>
+  <tr><td>OpenCode</td><td>开源终端 agent，八层配置链（remote → global → … → MDM 托管）</td></tr>
+  <tr><td>Amp</td><td>Sourcegraph 系；threads 云端会话一等资产、TS 插件、skill 内嵌 MCP</td></tr>
+  <tr><td>Goose</td><td>Linux 基金会 AAIF 项目；recipes 工作流最强（参数化+子编排+重试）</td></tr>
+  <tr><td>Zed</td><td>编辑器 AI；agent.profiles；Rules 已废弃拆为 Skills+Instructions</td></tr>
+  <tr><td>JetBrains Junie</td><td>IDE 内嵌存储 + 独立 CLI 转型中；项目信任体系</td></tr>
+  <tr><td>Trae</td><td>字节 AI IDE；独有 memory 实体与场景化规则（scene: git_message）</td></tr>
+  <tr><td>Hermes</td><td>Nous Research 自学习 agent；MCP 客户端配置面最深（mTLS/sampling/elicitation）；自带 claude-code 迁移命令</td></tr>
+  <tr><td>OpenClaw</td><td>多渠道 agent 网关（非 Claude 复刻）；JSON5 严格 schema + 热重载；观察名单，只读采集先行</td></tr>
+</table>
+
+<p class="figcap">完整配置地图见 <code>docs/ADAPTERS.md</code> §3；字段级细节见 <code>docs/research/field-inventory-*.md</code> 与 <code>tool-survey-*.md</code></p>
+
+<h3>12.3 接入新工具的门槛</h3>
+<p>新增一个工具支持 = 新增一个适配器包。检查清单：官方文档核对并补齐逐字段档案 → 回答证伪问题"IR 需要为它改什么" → 实现四方法+能力矩阵 → golden-file 双向测试（必须含注释保留用例）→ 敏感字段清单 → 三平台 Detect 验证（含麒麟冒烟）→ 跑对抗用例库相关子集。P3 阶段适配器将支持外置进程插件（gRPC over stdio），届时第三方可以用任何语言写适配器。</p>
+
+<!-- ==================== 第 13 章 ==================== -->
+<h2 id="ch13"><span class="no">13</span>质量保障：调研、评审与红队</h2>
+
+<p>这份设计不是一次写成的，而是经过"设计 → 专家团评审 → 修订 → 生态调研+红队对抗 → 再修订"两轮循环收敛到 v0.3。把过程记录下来，因为它是设计可信度的一部分。</p>
+
+<h3>13.1 第一轮：五维专家评审</h3>
+<p>五位专家子代理并行评审初版：系统架构、数据模型、事实核查（实检官方文档）、跨平台与安全、Go/Rust 选型。产出 <strong>8 项 BLOCKER + 22 个 MAJOR 主题</strong>，全部闭环于 v0.2。代表性发现：合并语义三处空白（粒度/再合并/删除传播）、round-trip 自检缺接口支撑、P0 路线图闭环矛盾、keyring 无降级链、blobs 明文泄漏通道。</p>
+
+<h3>13.2 第二轮：20 工具调研 + 红队对抗</h3>
+<p>针对"归纳基础是否牢靠"的质疑，执行了 R1（调研补全）+ R2（红队）两轮：</p>
+<ul>
+  <li><strong>字段级调研</strong>：五工具约 850 字段逐条清点，标注 IR 承载状态。击穿 9 类结构缺口：五层 scope、hook 实体、activation 激活模型、McpServer/PromptPack/Workflow 字段扩充、Setting id 点号路径等——全部修复于 v0.3。</li>
+  <li><strong>生态广度</strong>：15 个扩展工具调研卡片，每工具必须回答"IR 要为你改什么"（证伪纪律）。令人欣慰的是收敛信号同样明确：SKILL.md 目录形态全行业收敛、AGENTS.md 子目录嵌套四工具支持——说明 IR 的骨架方向是对的。</li>
+  <li><strong>红队 FMEA</strong>：12 组件 43 条失败模式 + 38 条对抗用例（26 条是文档完全未定义的行为）。Top10 威胁全部处置，最典型的是"删除语义黑洞"（第 5.4 节）和三个安全漏洞（第 10.2 节）。</li>
+</ul>
+
+<h3>13.3 持续验证机制</h3>
+<table>
+  <tr><th>机制</th><th>防什么</th></tr>
+  <tr><td>golden-file 双向测试（含注释/键序保留用例）</td><td>适配器格式漂移、YAML 注释静默丢失</td></tr>
+  <tr><td>38 条对抗用例回归（入 CI）</td><td>已知失败模式复发</td></tr>
+  <tr><td>真实世界样本库回归</td><td>"文档写了但用户不这么用"的认知偏差</td></tr>
+  <tr><td>导出后 round-trip 语义自检</td><td>单次迁移的即时错误</td></tr>
+  <tr><td>版本护栏 + doctor 体检</td><td>上游工具升级后的格式漂移</td></tr>
+</table>
+
+<!-- ==================== 第 14 章 ==================== -->
+<h2 id="ch14"><span class="no">14</span>技术选型：为什么是 Go</h2>
+
+<p>语言选型经过专项对比分析（完整报告：<code>docs/review/GO-VS-RUST.md</code>），最终于 2026-08-16 拍板 <strong>Go</strong>。决策依据按重要性排序：</p>
+
+<h3>14.1 决定性因素一：YAML 保注释 round-trip 的生态落差</h3>
+<p>本项目的配置仓库是<strong>人工可编辑</strong>的 YAML 文件，导出时丢注释等于破坏用户手工维护的内容——这直接挂钩"字段级零丢失"的核心承诺。Go 侧 <code>yaml.v3</code> 的 Node API 保留注释/键序/样式，经过 Kubernetes 规模验证；Rust 侧 <code>serde_yaml</code> 已于 2024 年 3 月归档，替代 fork 均无注释保留能力。选 Rust 意味着要么放弃核心承诺，要么自研注释保留层。<strong>这一条单独即可定调。</strong></p>
+
+<h3>14.2 决定性因素二：六目标 + 麒麟的分发工程成本</h3>
+<p>Go：<code>GOOS/GOARCH</code> 一把梭，goreleaser 一份配置出全部静态二进制；<code>CGO_ENABLED=0</code> 天然免疫麒麟的老 glibc。Rust：交叉链接器要 zigbuild/cross/cargo-xwin 组合，macOS 目标仍需 Apple SDK，麒麟要切 musl target 并回归全依赖树。都有解法，但对个人/小团队是持续的 CI 维护税。</p>
+
+<h3>14.3 决定性因素三与四</h3>
+<ul>
+  <li><strong>git 依赖的 C 形态</strong>：go-git 纯 Go 对交叉编译零影响；Rust 要么背 libgit2 的 C 依赖，要么押注 API 未稳的 gix 0.x。</li>
+  <li><strong>所有权模型对本项目是 overhead</strong>：主体工作是"读 YAML/MD → 树变换 → 写出"的胶水逻辑，Rust 的借用规则在此产生真实摩擦，而其并发/内存安全收益在单线程、短生命周期、纯 IO 的 CLI 上几乎兑现不了。反过来，任何以性能/二进制体积推 Rust 的论证，在单机 CLI 场景下也都不成立。</li>
+</ul>
+
+<h3>14.4 选 Go 必须接受的代价（已写入设计）</h3>
+<ol>
+  <li>keyring 库改选 99designs/keyring（自带文件后端降级——headless/麒麟刚需）；</li>
+  <li>TOML 不保注释（go-toml v2）→ Codex config.toml 整块重写 + 写前快照兜底，注释免责已写入保真边界；</li>
+  <li><code>CGO_ENABLED=0</code> 构建纪律 + CI 静态断言——红利需要纪律锁住；</li>
+  <li>err 样板多 → errcheck + govet 强制进 CI；</li>
+  <li>无编译期穷尽检查 → golden-file 测试集从 P0 就建；</li>
+  <li>P3 插件化放弃 Go plugin（不支持 Windows），直接用 hashicorp/go-plugin 外置进程方案；</li>
+  <li>发布工程预算：macOS 公证、Windows 签名。</li>
+</ol>
+
+<h3>14.5 关键依赖选型</h3>
+<table>
+  <tr><th>需求</th><th>选择</th><th>备注</th></tr>
+  <tr><td>CLI / TUI</td><td>spf13/cobra / bubbletea（P2）</td><td>事实标准</td></tr>
+  <tr><td>YAML</td><td>gopkg.in/yaml.v3</td><td>Node API 保注释；测试纪律兜底</td></tr>
+  <tr><td>TOML</td><td>pelletier/go-toml/v2</td><td>不保注释 → 快照兜底</td></tr>
+  <tr><td>Diff</td><td>sergi/go-diff</td><td>文本差异展示</td></tr>
+  <tr><td>Keyring</td><td>99designs/keyring</td><td>file 后端降级是刚需</td></tr>
+  <tr><td>Git</td><td>go-git</td><td>纯 Go，交叉编译零影响</td></tr>
+  <tr><td>文件锁</td><td>gofrs/flock</td><td>三平台 flock</td></tr>
+  <tr><td>加密文件</td><td>age（filippo.io/age）</td><td>secret 文件后端</td></tr>
+  <tr><td>AI 调用</td><td>OpenAI 兼容协议自封装</td><td>默认引导本地/私有端点</td></tr>
+  <tr><td>测试</td><td>testing + testscript + golden-file</td><td>对抗用例回归入 CI</td></tr>
+  <tr><td>发布</td><td>goreleaser</td><td>六目标 + checksums</td></tr>
+</table>
+
+<!-- ==================== 第 15 章 ==================== -->
+<h2 id="ch15"><span class="no">15</span>路线图</h2>
+
+<table>
+  <tr><th>阶段</th><th>内容</th><th>验收标准</th></tr>
+  <tr><td><strong>P0</strong><br>最小闭环</td><td>IR v0.3 模型 + 存储层（锁/快照/写入协议/脱敏管线）+ claudecode/codex 两个适配器（含 hooks）+ <code>collect</code>/<code>export</code> + 双层 merge + 最小 <code>link</code></td><td>Claude ↔ Codex 指令/MCP/hooks 互转；字段级 round-trip 无丢失；对抗用例库 P0 子集回归通过；双层继承 e2e 通过</td></tr>
+  <tr><td><strong>P1</strong><br>生态扩展</td><td>copilot/zhanlu/gemini 适配器 + 指纹 relink + 独立 <code>diff</code> 命令 + secrets 三级后端完整化</td><td>五适配器 golden-file 全绿；Claude→Copilot、Codex→Zhanlu 两条链 e2e 通过；目录改名后 relink 成功；麒麟 V10 冒烟通过</td></tr>
+  <tr><td><strong>P2</strong><br>智能化</td><td>AI 辅助完整 consent 链 + TUI 界面 + <code>sync</code>（白名单+预检）+ 扩展适配器（cursor/windsurf/aider/cline/roo/opencode…调研卡片已备）</td><td>AI 转换确认链完整；sync 预检阻断演示通过；TUI 完成 collect/export 全流程</td></tr>
+  <tr><td><strong>P3</strong><br>平台化</td><td>团队 profile 共享、GUI、外置进程插件（hashicorp/go-plugin，第三方可用任意语言写适配器）</td><td>第三方适配器接入示例跑通</td></tr>
+</table>
+
+<p>路线图上还挂着几条<strong>时效跟踪</strong>（影响适配器排期）：Gemini CLI → Antigravity 过渡进行中（2026-06-18 启动）；Windsurf → Devin Desktop 品牌迁移（适配器需双目录双读）；Cline <code>.clineignore</code> 弃用预告（采集标 legacy）；Zed Rules 已废弃；Claude commands 并入 skills（legacy 兼容）。</p>
+
+<!-- ==================== 第 16 章 ==================== -->
+<h2 id="ch16"><span class="no">16</span>边界与开放问题</h2>
+
+<h3>16.1 有意的边界（不是遗漏）</h3>
+<ul>
+  <li><strong>企业管理层（managed）只读、远程订阅层（remote）不写回</strong>：managed 采集供审计比对、不参与物化（管理权在企业侧）；remote 采集后参与本地合并，但系统不会替你写回组织的远程源。</li>
+  <li><strong>可执行插件不做跨工具语义翻译</strong>：Codex 的 Starlark 执行策略、Cline/Amp 的 TS 插件，IR 保真存储 + 导出时降级警告。翻译代码就是移植程序，超出配置工具的合理边界。</li>
+  <li><strong>权限/审批模型暂不标准化</strong>：Roo 的 groups+fileRegex、Cline 的权限体系等各工具差异过大，当前以扩展位承载，记录为未来的标准化候选。</li>
+  <li><strong>不做实时双向同步</strong>：守护进程式的文件监听留待后续评估，首版是显式的 collect/export。</li>
+</ul>
+
+<h3>16.2 待决策的开放问题</h3>
+<ul>
+  <li><strong>项目正式命名</strong>：已定名 <code>cfg4ai</code>（2026-08-17，GitHub 零占用验证）；</li>
+  <li>是否支持 profile 的远程订阅（团队规范下发）；</li>
+  <li>是否需要 watch 模式（文件变更自动采集）；</li>
+  <li>真实世界样本库的持续扩充机制（当前以官方示例为主）。</li>
+</ul>
+
+<h3>16.3 已知遗留事项</h3>
+<ul>
+  <li>Zhanlu 的部分键结构待校准（无公开文档，本机实证仅见 <code>permission</code> 顶级键，适配器需防御式探测）；</li>
+  <li>Claude plugin 键表、Codex subagent TOML 层键表等 3 处字段档案留有核实方法，实现对应适配器前补完；</li>
+  <li><code>~/.claude.json</code> 无官方文档，需 P0 实采脱敏后枚举其完整键表。</li>
+</ul>
+
+<!-- ==================== 附录 A ==================== -->
+<h2 id="app-a"><span class="no">A</span>附录 · 文档索引</h2>
+
+<p>本 HTML 是全部内容的叙述化合并版；各专项规格与过程档案仍是权威来源（如有出入，以规格文档为准）：</p>
+
+<table>
+  <tr><th>文档</th><th>内容</th></tr>
+  <tr><td><code>docs/ARCHITECTURE.md</code></td><td>总体架构（v0.3）：分层模型、迁移引擎、存储、跨平台、安全、模块结构、路线图</td></tr>
+  <tr><td><code>docs/IR-SCHEMA.md</code></td><td>IR 数据模型规范（v0.3）：实体 schema、合并语义、墓碑机制、12 条校验规则</td></tr>
+  <tr><td><code>docs/CLI-SPEC.md</code></td><td>命令行规范（v0.3）：全部命令、flag、退出码、阶段对照</td></tr>
+  <tr><td><code>docs/ADAPTERS.md</code></td><td>适配器规范（v0.3）：接口、实现规范十条、语义差异表、20 工具配置地图、降级规则</td></tr>
+  <tr><td><code>docs/research/RESEARCH-SUMMARY.md</code></td><td>调研与对抗审计汇总：覆盖矩阵、9 类击穿、设计决策表 D1–D17</td></tr>
+  <tr><td><code>docs/research/field-inventory-*.md</code></td><td>五工具字段级清单（约 850 字段，逐条标注 IR 承载状态）</td></tr>
+  <tr><td><code>docs/research/tool-survey-{a,b,c}.md</code></td><td>15 个扩展工具调研卡片</td></tr>
+  <tr><td><code>docs/research/adversarial-cases.md</code></td><td>38 条对抗用例库（含验证手段标注）</td></tr>
+  <tr><td><code>docs/review/REVIEW-REPORT.md</code></td><td>第一轮专家评审报告（8 BLOCKER + 22 MAJOR）</td></tr>
+  <tr><td><code>docs/review/REDTEAM.md</code></td><td>红队 FMEA 报告（12 组件 43 条失败模式 + Top10 威胁）</td></tr>
+  <tr><td><code>docs/review/GO-VS-RUST.md</code></td><td>语言选型详细分析（含决策记录）</td></tr>
+</table>
+
+<!-- ==================== 附录 B ==================== -->
+<h2 id="app-b"><span class="no">B</span>附录 · 术语表</h2>
+
+<table>
+  <tr><th>术语</th><th>含义</th></tr>
+  <tr><td><strong>IR</strong>（Intermediate Representation）</td><td>统一中间表示。所有工具配置的规范数据模型，系统的"心脏"</td></tr>
+  <tr><td><strong>SSOT</strong>（Single Source of Truth）</td><td>单一事实源。所有配置知识的唯一权威仓库（<code>$CFG4AI_HOME</code>）</td></tr>
+  <tr><td><strong>profile</strong></td><td>配置档案。分全局与项目两种，项目继承全局</td></tr>
+  <tr><td><strong>适配器</strong>（Adapter）</td><td>某工具的导入器+导出器对。每个工具一个</td></tr>
+  <tr><td><strong>能力矩阵</strong></td><td>适配器声明的"支持哪些实体/支持到什么程度"，导出降级的依据</td></tr>
+  <tr><td><strong>x-&lt;tool&gt;</strong></td><td>扩展命名空间。工具特有字段的保真容器，只读透传</td></tr>
+  <tr><td><strong>origin</strong></td><td>来源追踪信息：工具、路径、时间、hash</td></tr>
+  <tr><td><strong>墓碑</strong>（tombstone）</td><td>源端已删除条目的标记；导出视为不存在，遮蔽全局同 id 条目</td></tr>
+  <tr><td><strong>round-trip</strong></td><td>往返：工具格式 → IR → 工具格式。字段级零丢失是强承诺</td></tr>
+  <tr><td><strong>secretref</strong></td><td>敏感值的占位符引用，值本体在钥匙串/加密文件</td></tr>
+  <tr><td><strong>blob</strong></td><td>脱敏后原始内容的内容寻址存储，保真保险丝</td></tr>
+  <tr><td><strong>golden-file</strong></td><td>黄金文件测试：真实样例输入 ↔ 期望输出的快照对比测试</td></tr>
+  <tr><td><strong>物化</strong>（materialize）</td><td>把合并后的有效配置实际写成目标工具的文件</td></tr>
+  <tr><td><strong>MCP</strong></td><td>Model Context Protocol，AI 工具的外部服务扩展协议</td></tr>
+  <tr><td><strong>MDM</strong></td><td>Mobile Device Management，移动设备管理；此处指组织托管配置的下发（对应 managed 层级）</td></tr>
+</table>
+
+<footer class="doc-footer">
+  <p>cfg4ai 设计全书 · v0.3 · 2026-08-16 ｜ 本文档由四份技术规格、一轮五维专家评审、20 工具生态调研与红队对抗审计合并而成 ｜ 语言选型：Go（已定）｜ 状态：P0 待动工</p>
+</footer>
+
+</main>
+</div>
+</body>
+</html>

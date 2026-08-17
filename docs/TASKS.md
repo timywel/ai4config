@@ -50,9 +50,9 @@
 
 ## T7 adapters/claudecode（预估 2.5d）
 
-- [ ] **T7.1** Detect（全局+项目+managed 只读+进程检测）｜ 验收：样本环境探测单测
-- [ ] **T7.2** Import：CLAUDE.md（含 @import/imports）、settings.json、.mcp.json、agents/commands/skills、hooks（31 事件）、rules、~/.claude.json 局部 patch 读取｜ 依赖：T1–T4 ｜ 验收：golden-file Import 全绿
-- [ ] **T7.3** Export：物化布局（ADAPTERS §3.1 导出布局列）、settings 数组拼接语义消化、局部 patch 写回｜ 依赖：T6、T9 ｜ 验收：golden-file Export + round-trip 自检无差异（白名单内）
+- [x] **T7.1** Detect（全局+项目+managed 只读+进程检测）｜ 验收：样本环境探测单测（2026-08-17；detect.go/process.go）
+- [x] **T7.2** Import：CLAUDE.md（含 @import/imports）、settings.json、.mcp.json、agents/commands/skills、hooks（31 事件）、rules、~/.claude.json 局部 patch 读取｜ 依赖：T1–T4 ｜ 验收：golden-file Import 全绿（2026-08-17；import.go/parse.go，全局/项目/local 三组用例）
+- [x] **T7.3** Export：物化布局（ADAPTERS §3.1 导出布局列）、settings 数组拼接语义消化、局部 patch 写回｜ 依赖：T6、T9 ｜ 验收：golden-file Export + round-trip 自检无差异（白名单内）（2026-08-17；render.go/export.go，round-trip 字段级一致 + dry-run 不落盘）
 
 ## T8 adapters/codex（预估 2d）
 

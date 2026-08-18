@@ -26,7 +26,7 @@
 | 里程碑 | 内容 | 出口标准（DoD） | 目标 |
 |--------|------|----------------|------|
 | M0 设计冻结 | 四份规格 v0.3 + 骨架编译通过 + 本计划 | ✅ 已达成（2026-08-17） | — |
-| M1 P0 最小闭环 | claudecode/codex 适配器 + collect/export/link + store/写入协议/脱敏管线 | ARCHITECTURE §12 P0 验收全项（互转、字段级 round-trip、双层继承 e2e、对抗用例 P0 子集绿） | TBD |
+| M1 P0 最小闭环 | claudecode/codex 适配器 + collect/export/link + store/写入协议/脱敏管线 | ARCHITECTURE §12 P0 验收全项（互转、字段级 round-trip、双层继承 e2e、对抗用例 P0 子集绿） | ✅ 已达成（2026-08-18，见 review/P0-ACCEPTANCE.md） |
 | M2 P1 生态扩展 | copilot/zhanlu/gemini + claude-desktop + grokbuild 适配器、relink、secrets 三级后端 | §12 P1 验收（七适配器 golden-file 全绿、两条 e2e 链、麒麟冒烟） | TBD |
 | M3 P2 智能化 | aiassist consent 链、TUI、sync（白名单+preflight）、扩展适配器 | §12 P2 验收 | TBD |
 | M4 P3 平台化 | 团队共享、GUI、外置进程插件 | §12 P3 验收 | TBD |
@@ -88,4 +88,4 @@ T10 CLI（cobra）→ T11 对抗回归 → T12 P0 验收
 - [x] 设计 v0.3 + 两轮评审 + 红队 + 20 工具调研
 - [x] 命名定案 cfg4ai（GitHub 零占用验证）
 - [x] P0 骨架编译通过（评审修复 8 项后）
-- [ ] M1 P0 实现（见 TASKS.md）
+- [x] M1 P0 实现（见 TASKS.md；验收记录 review/P0-ACCEPTANCE.md，2026-08-18）

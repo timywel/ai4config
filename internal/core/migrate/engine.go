@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/timywel/ai4config/internal/adapters"
+	"github.com/timywel/ai4config/internal/core/aiassist"
 	"github.com/timywel/ai4config/internal/core/ir"
 	"github.com/timywel/ai4config/internal/core/profile"
 	"github.com/timywel/ai4config/internal/store"
@@ -17,6 +18,10 @@ import (
 type Engine struct {
 	Repo  *store.Repo
 	Hooks Hooks
+
+	// AI 语义转换（可选；P2）。配置后且 req.AI 为真时引擎层 Assist。
+	AI       *aiassist.Client
+	AIConfig aiassist.AIConfig
 }
 
 // Hooks 引擎与调用方（CLI/TUI）的交互回调。
@@ -36,6 +41,8 @@ type ExportRequest struct {
 	Force          bool            // 全部按 backup-overwrite（仍需快照）
 	IncludeForeign bool            // 纳入异构来源条目（applies_to 不含目标时）
 	Only           []ir.EntityKind // 限定实体类型（--only）
+	AI             bool            // 启用 AI 语义转换（引擎层 Assist）
+	AIApprove      bool            // 无人值守确认 AI 转换（记决策日志）
 }
 
 // ExportResult 导出结果。
@@ -80,6 +87,14 @@ func (e *Engine) Export(ctx context.Context, req ExportRequest) (*ExportResult, 
 	// [5] Map：能力矩阵降级（ADAPTERS §5 两级规则）
 	mapped, degradeWarn := e.applyCapabilities(filtered, adapter.Meta().Capabilities)
 	warnings = append(warnings, degradeWarn...)
+
+	// [5.5] Assist（可选，AI 语义转换，引擎层主导——适配器不感知 AI）
+	if req.AI {
+		mapped, err = e.assist(ctx, mapped, adapter.Meta().ID, req)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	// [6] 写入前快照（W2[9]；dry-run 也先计划但不落盘）
 	var snapshotID string

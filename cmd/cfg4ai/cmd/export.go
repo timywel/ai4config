@@ -8,6 +8,7 @@ import (
 
 	"github.com/timywel/ai4config/internal/adapters"
 	_ "github.com/timywel/ai4config/internal/adapters/all"
+	"github.com/timywel/ai4config/internal/core/aiassist"
 	"github.com/timywel/ai4config/internal/core/ir"
 	"github.com/timywel/ai4config/internal/core/migrate"
 	"github.com/timywel/ai4config/internal/store"
@@ -37,6 +38,18 @@ var exportCmd = &cobra.Command{
 		}
 
 		e := &migrate.Engine{Repo: repo}
+		// AI 接线：--ai 且未 --no-ai 时，从 config 构造 provider + consent
+		if exportAI && !flagNoAI {
+			cfg := loadAppConfig(repo)
+			if cfg.AI.BaseURL == "" {
+				return exitErr(1, "--ai 需要先配置：cfg4ai config set ai.base_url <url>")
+			}
+			provider := &aiassist.OpenAIProvider{BaseURL: cfg.AI.BaseURL, Model: cfg.AI.Model}
+			if client, cerr := aiassist.NewClient(provider, repo.Root); cerr == nil {
+				e.AI = client
+				e.AIConfig = aiassist.AIConfig{Provider: cfg.AI.Provider, BaseURL: cfg.AI.BaseURL, Model: cfg.AI.Model}
+			}
+		}
 		// 外来内容确认回调（交互四选项；--yes 时 foreign/modified 默认 skip，安全）
 		if !flagYes && !exportForce {
 			e.Hooks.ConfirmForeign = confirmForeignInteractive
@@ -49,6 +62,8 @@ var exportCmd = &cobra.Command{
 			Force:          exportForce,
 			IncludeForeign: exportIncludeForeign,
 			Only:           parseKinds(exportOnly),
+			AI:             exportAI && !flagNoAI,
+			AIApprove:      exportAIApprove,
 		})
 		if err != nil {
 			return exitErr(1, "%v", err)

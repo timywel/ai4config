@@ -147,9 +147,9 @@
 
 ## T21 core/aiassist（AI 辅助迁移，预估 2d）
 
-- [ ] **T21.1** Provider 接口 + OpenAI 兼容 HTTP 客户端（默认引导本地/私有端点）｜ 验收：mock provider 单测
-- [ ] **T21.2** consent 状态机（首次使用显式同意、AI 配置段变更强制重确认、决策日志）｜ 验收：变更重确认用例
-- [ ] **T21.3** 语义转换（skill 改写/冲突建议/语言适配）+ 脱敏（secret+内网地址）+ 引擎 Assist 步骤接入｜ 验收：脱敏用例 + export --ai e2e
+- [x] **T21.1** Provider 接口 + OpenAI 兼容 HTTP 客户端（默认引导本地/私有端点）｜ 验收：mock provider 单测
+- [x] **T21.2** consent 状态机（首次使用显式同意、AI 配置段变更强制重确认、决策日志）｜ 验收：变更重确认用例
+- [x] **T21.3** 语义转换（skill 改写/冲突建议/语言适配）+ 脱敏（secret+内网地址）+ 引擎 Assist 步骤接入｜ 验收：脱敏用例 + export --ai e2e
 
 ## T22 sync（白名单同步，预估 2d）
 

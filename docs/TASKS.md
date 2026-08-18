@@ -135,8 +135,8 @@
 
 ## T19 secrets 完整化 + diff 命令（预估 1.5d）
 
-- [ ] **T19.1** collect 接入三级后端（keyring→file→none）+ secret_backend 记录 + 占位符回采保护接线
-- [ ] **T19.2** diff 独立命令（SSOT vs 磁盘现状 / profile 间）
+- [x] **T19.1** collect 接入三级后端（keyring→file→none）+ secret_backend 记录 + 占位符回采保护接线
+- [x] **T19.2** diff 独立命令（SSOT vs 磁盘现状 / profile 间）
 
 ## T20 P1 验收（预估 0.5d）
 

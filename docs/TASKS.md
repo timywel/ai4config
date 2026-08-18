@@ -158,7 +158,7 @@
 
 ## T23 TUI（预估 2d）
 
-- [ ] **T23.1** bubbletea 交互界面（collect/export 可视化确认 + diff 预览）
+- [x] **T23.1** bubbletea 交互界面（collect/export 可视化确认 + diff 预览）
 
 ## T24 扩展适配器（预估 3d，调研卡片已备 research/tool-survey-a/b.md）
 

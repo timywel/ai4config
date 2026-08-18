@@ -112,8 +112,8 @@
 
 ## T14 adapters/copilot（预估 2d）
 
-- [ ] **T14.1** Detect + Import：.github/copilot-instructions.md、instructions/*.instructions.md（applyTo→file_patterns）、prompts、agents、mcp.json（servers+inputs）、settings.json
-- [ ] **T14.2** Export + golden-file 双向
+- [x] **T14.1** Detect + Import：.github/copilot-instructions.md、instructions/*.instructions.md（applyTo→file_patterns）、prompts、agents、mcp.json（servers+inputs）、settings.json
+- [x] **T14.2** Export + golden-file 双向
 
 ## T15 adapters/zhanlu（预估 1.5d）
 

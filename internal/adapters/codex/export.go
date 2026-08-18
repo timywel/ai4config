@@ -13,10 +13,9 @@ import (
 	"github.com/timywel/ai4config/internal/platform/paths"
 )
 
-// exportBundle 把 merged Bundle 物化为 Codex 配置（ADAPTERS §3.2 导出布局）。
+// exportBundle materializes merged Bundle into Codex config (ADAPTERS 3.2).
 func (a *adapter) exportBundle(ctx context.Context, b *ir.Bundle, opts adapters.ExportOpts) ([]adapters.WrittenFile, error) {
 	project := opts.ProjectRoot != ""
-
 	var codexDir, agentsBase string
 	if project {
 		codexDir = filepath.Join(opts.ProjectRoot, ".codex")
@@ -45,7 +44,6 @@ func (a *adapter) exportBundle(ctx context.Context, b *ir.Bundle, opts adapters.
 		return nil
 	}
 
-	// config.toml（整块重写；项目级跳过机器级键）
 	if len(b.Settings) > 0 || len(b.MCPServers) > 0 || len(b.Hooks) > 0 {
 		data, w, err := renderConfigTOML(b.Settings, b.MCPServers, b.Hooks, project)
 		if err != nil {
@@ -57,7 +55,6 @@ func (a *adapter) exportBundle(ctx context.Context, b *ir.Bundle, opts adapters.
 		}
 	}
 
-	// instructions → AGENTS.md（按 subtree 还原目录层级）
 	for _, inst := range b.Instructions {
 		target := filepath.Join(agentsBase, "AGENTS.md")
 		if inst.Subtree != "" && inst.Subtree != "." {
@@ -68,7 +65,6 @@ func (a *adapter) exportBundle(ctx context.Context, b *ir.Bundle, opts adapters.
 		}
 	}
 
-	// skills → skills/<name>/SKILL.md
 	for _, p := range b.Skills {
 		data := renderSkillMD(p)
 		if err := add(filepath.Join(codexDir, "skills", p.Name, "SKILL.md"), data); err != nil {
@@ -76,11 +72,18 @@ func (a *adapter) exportBundle(ctx context.Context, b *ir.Bundle, opts adapters.
 		}
 	}
 
-	_ = warnings // 降级/跳过 Warning 由引擎层收集（此处并入 files 返回前由调用方处理）
+	for _, p := range b.Agents {
+		data := renderSkillMD(p)
+		if err := add(filepath.Join(codexDir, "agents", p.Name+".md"), data); err != nil {
+			return nil, err
+		}
+	}
+
+	_ = warnings
 	return files, nil
 }
 
-// renderSkillMD PromptPack → SKILL.md（frontmatter + 正文）。
+// renderSkillMD renders a PromptPack as frontmatter+body markdown.
 func renderSkillMD(p ir.PromptPack) []byte {
 	var sb strings.Builder
 	sb.WriteString("---\nname: " + p.Name + "\n")
@@ -92,9 +95,9 @@ func renderSkillMD(p ir.PromptPack) []byte {
 	return []byte(sb.String())
 }
 
-// writeOne 生成渲染计划（不落盘；统一由引擎经 atomicfile 写盘，ARCHITECTURE §5.3）。
+// writeOne builds a render plan entry (no disk write; engine writes via atomicfile).
 func writeOne(path string, content []byte, dryRun bool) (adapters.WrittenFile, error) {
-	_ = dryRun // 适配器不落盘，dryRun 由引擎控制
+	_ = dryRun
 	sum := sha256.Sum256(content)
 	return adapters.WrittenFile{Path: path, Hash: hex.EncodeToString(sum[:]), Content: content}, nil
 }

@@ -35,6 +35,8 @@ func (a *adapter) importGlobal(loc adapters.Location, b *ir.Bundle) error {
 	a.readAgentsMD(b, dir, ir.ScopeGlobal, "~/.codex", "")
 	// skills/<name>/SKILL.md
 	a.readSkillsDir(b, filepath.Join(dir, "skills"), ir.ScopeGlobal, "~/.codex/skills")
+	// agents/<name>.md
+	a.readPackDir(b, filepath.Join(dir, "agents"), ir.KindAgent, ir.ScopeGlobal, "~/.codex/agents")
 	// auth.json：仅扫描敏感值（不读明文进 IR；抽取为 secretref 由脱敏管线处理）
 	a.noteAuthFile(b, filepath.Join(dir, "auth.json"))
 	return nil
@@ -251,4 +253,40 @@ func joinRaw(base, name string) string {
 		return name
 	}
 	return strings.TrimSuffix(base, "/") + "/" + name
+}
+
+// readPackDir reads <dir>/*.md as PromptPack entries (agents etc.).
+func (a *adapter) readPackDir(b *ir.Bundle, dir string, kind ir.EntityKind, scope ir.Scope, rawBase string) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return
+	}
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(dir, e.Name()))
+		if err != nil {
+			continue
+		}
+		var p ir.PromptPack
+		body, ext, err := ir.UnmarshalMarkdownDoc(data, &p)
+		if err != nil {
+			continue
+		}
+		p.Extensions = ext
+		p.Body = body
+		p.Kind = kind
+		if p.Name == "" {
+			p.Name = strings.TrimSuffix(e.Name(), ".md")
+		}
+		if p.ID == "" {
+			p.ID = string(kind) + "." + sanitizeIDName(p.Name)
+		}
+		p.Origin = &ir.Origin{Tool: "codex", Path: joinRaw(rawBase, e.Name()), Scope: scope}
+		if kind == ir.KindAgent {
+			b.Agents = append(b.Agents, p)
+		}
+		b.Add(kind, p.ID)
+	}
 }

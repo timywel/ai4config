@@ -162,12 +162,12 @@
 
 ## T24 扩展适配器（预估 3d，调研卡片已备 research/tool-survey-a/b.md）
 
-- [ ] **T24.1** cursor（.cursor/rules/*.mdc、mcp.json）
-- [ ] **T24.2** windsurf→devin（.windsurf/ 与 .devin/ 双读）
-- [ ] **T24.3** aider（.aider.conf.yml、CONVENTIONS.md）
-- [ ] **T24.4** cline（.clinerules/、cline_mcp_settings.json）
-- [ ] **T24.5** roo（.roo/rules/、.roomodes）
-- [ ] **T24.6** opencode（opencode.json、AGENTS.md）
+- [x] **T24.1** cursor（.cursor/rules/*.mdc、mcp.json）
+- [x] **T24.2** windsurf→devin（.windsurf/ 与 .devin/ 双读）
+- [x] **T24.3** aider（.aider.conf.yml、CONVENTIONS.md）
+- [x] **T24.4** cline（.clinerules/、cline_mcp_settings.json）
+- [x] **T24.5** roo（.roo/rules/、.roomodes）
+- [x] **T24.6** opencode（opencode.json、AGENTS.md）
 
 ## T25 P2 验收（预估 0.5d）
 

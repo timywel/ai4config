@@ -127,7 +127,7 @@
 
 ## T17 adapters/claude-desktop（预估 0.5d，轻量）
 
-- [ ] **T17.1** claude_desktop_config.json（mcpServers）采集/导出，与 claudecode 共享 MCP 适配代码
+- [x] **T17.1** claude_desktop_config.json（mcpServers）采集/导出，与 claudecode 共享 MCP 适配代码
 
 ## T18 adapters/grokbuild（预估 1.5d）
 

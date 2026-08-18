@@ -68,3 +68,42 @@ func TestP0Acceptance_ClaudeToCodex(t *testing.T) {
 		t.Errorf("codex agents/reviewer.md 未生成: %v", err)
 	}
 }
+
+// TestP0Acceptance_CodexToClaude 反向迁移：Codex → Claude Code（验收项 1 双向）。
+func TestP0Acceptance_CodexToClaude(t *testing.T) {
+	fakeHome := t.TempDir()
+	repoHome := t.TempDir()
+
+	codexDir := filepath.Join(fakeHome, ".codex")
+	os.MkdirAll(codexDir, 0o755)
+	os.WriteFile(filepath.Join(codexDir, "config.toml"), []byte("model = \"gpt-5\"\n\n[mcp_servers.db]\ntype = \"http\"\nurl = \"https://db.example.com\"\n"), 0o644)
+	os.WriteFile(filepath.Join(codexDir, "AGENTS.md"), []byte("# Codex 规范\n\n- 代码注释用英文\n"), 0o644)
+
+	env := []string{"USERPROFILE=" + fakeHome, "HOME=" + fakeHome}
+	os.Unsetenv("CODEX_HOME")
+
+	out, code := runCLIWithEnv(t, env, "--home", repoHome, "migrate", "--from", "codex", "--to", "claude-code")
+	t.Logf("migrate: code=%d\n%s", code, out)
+	if code != 0 && code != 5 {
+		t.Fatalf("migrate 退出码异常: %d\n%s", code, out)
+	}
+
+	// 指令互转：~/.claude/CLAUDE.md 含 Codex 指令内容
+	claudeMD, err := os.ReadFile(filepath.Join(fakeHome, ".claude", "CLAUDE.md"))
+	if err != nil {
+		t.Fatalf("~/.claude/CLAUDE.md 未生成: %v", err)
+	}
+	if !strings.Contains(string(claudeMD), "英文") {
+		t.Errorf("CLAUDE.md 应含迁移的 Codex 指令:\n%s", claudeMD)
+	}
+	// settings：model 写回
+	settingsData, _ := os.ReadFile(filepath.Join(fakeHome, ".claude", "settings.json"))
+	if !strings.Contains(string(settingsData), "gpt-5") {
+		t.Errorf("settings.json 应含 model:\n%s", settingsData)
+	}
+	// MCP：~/.claude.json 局部 patch 含 mcp_servers.db
+	cjData, _ := os.ReadFile(filepath.Join(fakeHome, ".claude.json"))
+	if !strings.Contains(string(cjData), "mcpServers") || !strings.Contains(string(cjData), "db") {
+		t.Errorf("~/.claude.json 应含 mcpServers.db:\n%s", cjData)
+	}
+}

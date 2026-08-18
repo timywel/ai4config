@@ -55,12 +55,22 @@ func (a *adapter) exportBundle(ctx context.Context, b *ir.Bundle, opts adapters.
 		}
 	}
 
+	// instructions: group by subtree, join bodies per AGENTS.md (multi-layer concat).
+	bySubtree := map[string][]string{}
+	var stOrder []string
 	for _, inst := range b.Instructions {
-		target := filepath.Join(agentsBase, "AGENTS.md")
-		if inst.Subtree != "" && inst.Subtree != "." {
-			target = filepath.Join(agentsBase, filepath.FromSlash(inst.Subtree), "AGENTS.md")
+		st := inst.Subtree
+		if _, ok := bySubtree[st]; !ok {
+			stOrder = append(stOrder, st)
 		}
-		if err := add(target, []byte(inst.Body)); err != nil {
+		bySubtree[st] = append(bySubtree[st], inst.Body)
+	}
+	for _, st := range stOrder {
+		target := filepath.Join(agentsBase, "AGENTS.md")
+		if st != "" && st != "." {
+			target = filepath.Join(agentsBase, filepath.FromSlash(st), "AGENTS.md")
+		}
+		if err := add(target, []byte(strings.Join(bySubtree[st], "\n"))); err != nil {
 			return nil, err
 		}
 	}

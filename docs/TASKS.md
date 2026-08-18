@@ -141,3 +141,34 @@
 ## T20 P1 验收（预估 0.5d）
 
 - [x] **T20.1** 七适配器 golden-file 全绿 + Claude→Copilot、Codex→Zhanlu e2e + relink 演示 + 麒麟 V10 冒烟
+---
+
+# P2 阶段任务（M3，ARCHITECTURE §12 P2）
+
+## T21 core/aiassist（AI 辅助迁移，预估 2d）
+
+- [ ] **T21.1** Provider 接口 + OpenAI 兼容 HTTP 客户端（默认引导本地/私有端点）｜ 验收：mock provider 单测
+- [ ] **T21.2** consent 状态机（首次使用显式同意、AI 配置段变更强制重确认、决策日志）｜ 验收：变更重确认用例
+- [ ] **T21.3** 语义转换（skill 改写/冲突建议/语言适配）+ 脱敏（secret+内网地址）+ 引擎 Assist 步骤接入｜ 验收：脱敏用例 + export --ai e2e
+
+## T22 sync（白名单同步，预估 2d）
+
+- [ ] **T22.1** sync init/push/pull/status（go-git 封装，白名单制 profiles/registry/config/exports）｜ 验收：bare 仓库双向同步用例
+- [ ] **T22.2** push 前置全仓敏感扫描（preflight，命中阻断）+ 换机 rebase 引导｜ 验收：红队 T-05 用例
+
+## T23 TUI（预估 2d）
+
+- [ ] **T23.1** bubbletea 交互界面（collect/export 可视化确认 + diff 预览）
+
+## T24 扩展适配器（预估 3d，调研卡片已备 research/tool-survey-a/b.md）
+
+- [ ] **T24.1** cursor（.cursor/rules/*.mdc、mcp.json）
+- [ ] **T24.2** windsurf→devin（.windsurf/ 与 .devin/ 双读）
+- [ ] **T24.3** aider（.aider.conf.yml、CONVENTIONS.md）
+- [ ] **T24.4** cline（.clinerules/、cline_mcp_settings.json）
+- [ ] **T24.5** roo（.roo/rules/、.roomodes）
+- [ ] **T24.6** opencode（opencode.json、AGENTS.md）
+
+## T25 P2 验收（预估 0.5d）
+
+- [ ] **T25.1** AI 转换确认链完整演示 + sync preflight 阻断演示 + TUI 跑通 collect/export

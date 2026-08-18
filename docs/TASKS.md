@@ -122,8 +122,8 @@
 
 ## T16 adapters/gemini（预估 1.5d）
 
-- [ ] **T16.1** Detect + Import（settings.json ~240 键、GEMINI.md、.gemini/）+ Export
-- [ ] **T16.2** golden-file 双向 + Antigravity 时效跟踪
+- [x] **T16.1** Detect + Import（settings.json ~240 键、GEMINI.md、.gemini/）+ Export
+- [x] **T16.2** golden-file 双向 + Antigravity 时效跟踪
 
 ## T17 adapters/claude-desktop（预估 0.5d，轻量）
 

@@ -140,4 +140,4 @@
 
 ## T20 P1 验收（预估 0.5d）
 
-- [ ] **T20.1** 七适配器 golden-file 全绿 + Claude→Copilot、Codex→Zhanlu e2e + relink 演示 + 麒麟 V10 冒烟
+- [x] **T20.1** 七适配器 golden-file 全绿 + Claude→Copilot、Codex→Zhanlu e2e + relink 演示 + 麒麟 V10 冒烟

@@ -107,3 +107,75 @@ func TestP0Acceptance_CodexToClaude(t *testing.T) {
 		t.Errorf("~/.claude.json 应含 mcpServers.db:\n%s", cjData)
 	}
 }
+
+// TestP1Acceptance_ClaudeToCopilot（P1 验收：Claude → Copilot 链路）。
+func TestP1Acceptance_ClaudeToCopilot(t *testing.T) {
+	fakeHome := t.TempDir()
+	repoHome := t.TempDir()
+	projDir := t.TempDir()
+
+	claudeDir := filepath.Join(fakeHome, ".claude")
+	os.MkdirAll(claudeDir, 0o755)
+	os.WriteFile(filepath.Join(claudeDir, "CLAUDE.md"), []byte("# 团队规范\n用中文回复\n"), 0o644)
+	os.WriteFile(filepath.Join(claudeDir, "settings.json"), []byte(`{"model":"opus"}`), 0o644)
+	os.WriteFile(filepath.Join(fakeHome, ".claude.json"), []byte(`{"mcpServers":{"fs":{"command":"npx","args":["-y","fs"]}}}`), 0o644)
+
+	env := []string{"USERPROFILE=" + fakeHome, "HOME=" + fakeHome}
+	out, code := runCLIWithEnv(t, env, "--home", repoHome, "migrate", "--from", "claude-code", "--to", "copilot", "--project", projDir)
+	t.Logf("migrate: code=%d\n%s", code, out)
+	if code != 0 && code != 5 {
+		t.Fatalf("migrate 异常: %d\n%s", code, out)
+	}
+	// copilot 项目级：.github/copilot-instructions.md 含指令
+	ci, err := os.ReadFile(filepath.Join(projDir, ".github", "copilot-instructions.md"))
+	if err != nil {
+		t.Fatalf("copilot-instructions.md 未生成: %v", err)
+	}
+	if !strings.Contains(string(ci), "中文") {
+		t.Errorf("copilot-instructions.md 应含迁移指令:\n%s", ci)
+	}
+	// .vscode/mcp.json 用 servers 键
+	mcpData, err := os.ReadFile(filepath.Join(projDir, ".vscode", "mcp.json"))
+	if err != nil {
+		t.Fatalf(".vscode/mcp.json 未生成: %v", err)
+	}
+	if !strings.Contains(string(mcpData), "servers") || !strings.Contains(string(mcpData), "fs") {
+		t.Errorf("mcp.json 应用 servers 键含 fs:\n%s", mcpData)
+	}
+}
+
+// TestP1Acceptance_CodexToZhanlu（P1 验收：Codex → Zhanlu 链路）。
+func TestP1Acceptance_CodexToZhanlu(t *testing.T) {
+	fakeHome := t.TempDir()
+	repoHome := t.TempDir()
+	projDir := t.TempDir()
+
+	codexDir := filepath.Join(fakeHome, ".codex")
+	os.MkdirAll(codexDir, 0o755)
+	os.WriteFile(filepath.Join(codexDir, "config.toml"), []byte("model = \"gpt-5\"\n\n[mcp_servers.db]\ntype = \"http\"\nurl = \"https://db.x.com\"\n"), 0o644)
+	os.WriteFile(filepath.Join(codexDir, "AGENTS.md"), []byte("# Codex 规范\n代码注释用英文\n"), 0o644)
+
+	env := []string{"USERPROFILE=" + fakeHome, "HOME=" + fakeHome}
+	os.Unsetenv("CODEX_HOME")
+	out, code := runCLIWithEnv(t, env, "--home", repoHome, "migrate", "--from", "codex", "--to", "zhanlu", "--project", projDir)
+	t.Logf("migrate: code=%d\n%s", code, out)
+	if code != 0 && code != 5 {
+		t.Fatalf("migrate 异常: %d\n%s", code, out)
+	}
+	// zhanlu 项目级：AGENTS.md 含指令
+	ag, err := os.ReadFile(filepath.Join(projDir, "AGENTS.md"))
+	if err != nil {
+		t.Fatalf("AGENTS.md 未生成: %v", err)
+	}
+	if !strings.Contains(string(ag), "英文") {
+		t.Errorf("AGENTS.md 应含迁移指令:\n%s", ag)
+	}
+	// kilo.json 含 mcpServers.db
+	kilo, err := os.ReadFile(filepath.Join(projDir, "kilo.json"))
+	if err != nil {
+		t.Fatalf("kilo.json 未生成: %v", err)
+	}
+	if !strings.Contains(string(kilo), "mcpServers") || !strings.Contains(string(kilo), "db") {
+		t.Errorf("kilo.json 应含 mcpServers.db:\n%s", kilo)
+	}
+}

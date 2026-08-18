@@ -3,11 +3,17 @@
 package all
 
 import (
+	_ "github.com/timywel/ai4config/internal/adapters/aider"
 	_ "github.com/timywel/ai4config/internal/adapters/claudecode"
 	_ "github.com/timywel/ai4config/internal/adapters/claudedesktop"
+	_ "github.com/timywel/ai4config/internal/adapters/cline"
 	_ "github.com/timywel/ai4config/internal/adapters/codex"
 	_ "github.com/timywel/ai4config/internal/adapters/copilot"
+	_ "github.com/timywel/ai4config/internal/adapters/cursor"
 	_ "github.com/timywel/ai4config/internal/adapters/gemini"
 	_ "github.com/timywel/ai4config/internal/adapters/grokbuild"
+	_ "github.com/timywel/ai4config/internal/adapters/opencode"
+	_ "github.com/timywel/ai4config/internal/adapters/roo"
+	_ "github.com/timywel/ai4config/internal/adapters/windsurf"
 	_ "github.com/timywel/ai4config/internal/adapters/zhanlu"
 )

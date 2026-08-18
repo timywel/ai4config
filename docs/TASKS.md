@@ -73,8 +73,8 @@
 
 ## T11 对抗回归（预估 1d）
 
-- [ ] **T11.1** P0 子集可执行化：T-01/T-03/T-05/T-06/T-07 + IR 表达力类（id 点号、@import 环、JSONC 密度）+ 文件系统类（symlink 农场、只读、长路径）｜ 验收：全部转 TestAdversarial_* 且绿
-- [ ] **T11.2** "文档澄清"类 12 条逐条核对记录
+- [x] **T11.1** P0 子集可执行化：T-01/T-03/T-05/T-06/T-07 + IR 表达力类（id 点号、@import 环、JSONC 密度）+ 文件系统类（symlink 农场、只读、长路径）｜ 验收：全部转 TestAdversarial_* 且绿（2026-08-17；11 个对抗测试全绿，覆盖 A1/A3/A4/A5/B1/B4/E3/F1/F5；**修复真实 bug：JSON 解析遇 BOM 报错**）
+- [x] **T11.2** "文档澄清"类 12 条逐条核对记录（2026-08-17；adversarial-cases.md 附二，含状态表与新增变更候选）
 
 ## T12 P0 验收（预估 0.5d）
 
@@ -90,6 +90,9 @@
 | C1 | watch 模式（文件变更自动采集） | ARCHITECTURE §13 开放问题 | 待评估 |
 | C2 | profile 远程订阅（团队下发） | ARCHITECTURE §13 开放问题 | 待评估 |
 | C3 | 权限/审批模型标准化（Roo groups 等） | RESEARCH-SUMMARY D17 | P3 候选 |
+| C4 | 合并覆盖致继承键丢失时的 Warning（防静默损坏） | 对抗用例 AC-A4 | P1 候选 |
+| C5 | GBK/非 UTF-8 编码探测与转换策略 | 对抗用例 AC-B3 | 待评估 |
+| C6 | JSONC 解析器引入评估（VS Code settings 注释容忍） | 对抗用例 AC-B1 | P1 候选 |
 
 ## 缺陷区
 

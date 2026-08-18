@@ -87,6 +87,30 @@
 
 ---
 
+## 附二：T11 核对记录（2026-08-17）
+
+**可执行化完成（TestAdversarial_*，全绿）**：AC-A1（import 环 DFS）、AC-A3（id 规范化+放行）、AC-A4（浅合并行为）、AC-A5（setting 点号 key）、AC-B1（JSONC 边界记录）、AC-B4（BOM 剥离，**修复了 json 解析遇 BOM 报错的真实 bug**）、AC-E3（跨工具引用环）、AC-F1（自由文本仅 Warning 不改写）、AC-F5（占位符回采不覆盖，红队 T-03）。
+
+**文档澄清类 12 条核对状态**：
+
+| 用例 | 状态 | 说明 |
+|------|------|------|
+| AC-A2 symlink 环节点标识 | 部分实现 | 环检测按路径字符串建图（DetectImportCycle）；symlink 穿透判定留待采集层 |
+| AC-A3 id 派生 | ✅ 已实现 | sanitizeIDName 规范化 + ParseID 放行点号/大写 |
+| AC-A5 setting 三段式 | ✅ 已实现 | D2 放行点号；ParseSettingID 首点号分隔 |
+| AC-B1 JSONC 注释阈值 | 记录 | JSONC 解析能力边界记录；密度阈值公式留待 P1 |
+| AC-B3 GBK 编码探测 | 留待 | 编码探测/转换策略需设计（记录为变更候选） |
+| AC-C1 symlink 农场 | ✅ 已实现 | 采集 lstat 不跟随 + 写入父目录穿透（T6） |
+| AC-D4 registry 损坏恢复 | 留待 | registry 完整实现（含指纹/复核）在 P1；损坏降级只读模式待实现 |
+| AC-E6 inherited-skip 无层级 | 留待 | 目标无层级机制时的 inline 自动降级待实现 |
+| AC-F3 oversized PEM | 留待 | secretref 2KB 上限的拒绝/降级路径需在 sanitize 落地 |
+| AC-F4 env_file 展开 | 留待 | env_file 已建模；内容读取/降级策略待实现 |
+| AC-G1/G2/G3 组合故障 | 部分防护 | 防误判中止、空集保护、回采保护已实现并固化；断电现场检测、prune 前强制快照待实现 |
+
+**新增变更候选**：① 合并覆盖导致继承键丢失时的 Warning（AC-A4 揭示的静默损坏风险）；② GBK/编码探测策略；③ JSONC 解析器引入评估。
+
+---
+
 ## 附：验证手段落地建议
 
 | 验证手段 | 建议落点 |

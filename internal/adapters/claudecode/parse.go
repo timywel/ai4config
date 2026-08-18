@@ -1,12 +1,20 @@
 package claudecode
 
 import (
+	"bytes"
 	"encoding/json"
 	"regexp"
 	"strings"
 
 	"github.com/timywel/ai4config/internal/core/ir"
 )
+
+// utf8BOM UTF-8 BOM 前缀（PowerShell Out-File 等产物）。encoding/json 遇 BOM 报错，
+// JSON 解析前必须先剥离（对抗用例 AC-B4）。
+var utf8BOM = []byte{0xEF, 0xBB, 0xBF}
+
+// stripBOM 剥离 UTF-8 BOM。
+func stripBOM(data []byte) []byte { return bytes.TrimPrefix(data, utf8BOM) }
 
 // 各文件格式解析器（Claude Code 格式 → IR）。
 
@@ -112,7 +120,7 @@ type settingsFile struct {
 // 返回 settings 条目、hooks、mcpServers 原始 JSON（由调用方决定如何并入）。
 func parseSettingsJSON(data []byte, scope ir.Scope, originPath string) ([]ir.SettingEntry, []ir.Hook, []ir.MCPServer, error) {
 	var sf settingsFile
-	if err := json.Unmarshal(data, &sf); err != nil {
+	if err := json.Unmarshal(stripBOM(data), &sf); err != nil {
 		return nil, nil, nil, err
 	}
 	var settings []ir.SettingEntry
@@ -264,7 +272,7 @@ func parseMCPJSON(data []byte, scope ir.Scope, originPath string) ([]ir.MCPServe
 	var f struct {
 		MCPServers json.RawMessage `json:"mcpServers"`
 	}
-	if err := json.Unmarshal(data, &f); err != nil {
+	if err := json.Unmarshal(stripBOM(data), &f); err != nil {
 		return nil, err
 	}
 	if len(f.MCPServers) == 0 {

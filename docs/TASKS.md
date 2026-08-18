@@ -131,7 +131,7 @@
 
 ## T18 adapters/grokbuild（预估 1.5d）
 
-- [ ] **T18.1** Detect + Import（~/.grok/config.toml + 项目 .grok/、hooks 14 事件、skills）+ Export
+- [x] **T18.1** Detect + Import（~/.grok/config.toml + 项目 .grok/、hooks 14 事件、skills）+ Export
 
 ## T19 secrets 完整化 + diff 命令（预估 1.5d）
 

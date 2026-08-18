@@ -34,7 +34,10 @@ var collectCmd = &cobra.Command{
 		defer repo.Unlock()
 
 		scanner := secrets.DefaultScanner()
-		var backend secrets.Backend // P0：敏感值仅存占位符（后端接线见 T4 后续/e2e）
+		backend, backendName := resolveSecretsBackend(repo)
+		if flagVerbose {
+			fmt.Printf("secret 后端：%s`n", backendName)
+		}
 		var allWarnings []ir.Warning
 		totalNew, totalUpdated, totalTombstone := 0, 0, 0
 
@@ -141,6 +144,7 @@ func reconcileBundles(existing, fresh *ir.Bundle) (out *ir.Bundle, added, update
 	result.Settings, a, u, t = reconcileList[ir.SettingEntry](existing.Settings, fresh.Settings)
 	added, updated, tombstoned = added+a, updated+u, tombstoned+t
 
+	protectSecrets(&result, existing) // 回采保护：占位符不覆盖已有 secretref（红队 T-03）
 	return &result, added, updated, tombstoned
 }
 

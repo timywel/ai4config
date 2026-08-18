@@ -117,8 +117,8 @@
 
 ## T15 adapters/zhanlu（预估 1.5d）
 
-- [ ] **T15.1** Detect + Import（zhanlu.json、AGENTS.md、.kilo/、~/.agents/skills；防御式探测）｜ 依赖本机实证校准
-- [ ] **T15.2** Export + golden-file 双向
+- [x] **T15.1** Detect + Import（zhanlu.json、AGENTS.md、.kilo/、~/.agents/skills；防御式探测）｜ 依赖本机实证校准
+- [x] **T15.2** Export + golden-file 双向
 
 ## T16 adapters/gemini（预估 1.5d）
 

@@ -106,9 +106,9 @@
 
 ## T13 core/registry（项目关联与指纹，预估 2d）
 
-- [ ] **T13.1** registry.yaml 读写 + 项目注册表结构（projects: id/paths/fingerprint/profile/same_remote_as）｜ 验收：读写往返单测
-- [ ] **T13.2** 指纹计算：git remote 规范化（去协议/去 .git/host 小写/scp 转标准）+ root_name + first_commit｜ 验收：4 种 URL 形态归一用例
-- [ ] **T13.3** link/relink + 二次判别（first_commit 一致+确认才合并，否则新建 pid 记 same_remote_as）+ collect 路径命中指纹复核（D10）｜ 验收：AC-E1/AC-E2 对抗用例
+- [x] **T13.1** registry.yaml 读写 + 项目注册表结构（projects: id/paths/fingerprint/profile/same_remote_as）｜ 验收：读写往返单测（2026-08-18）
+- [x] **T13.2** 指纹计算：git remote 规范化（去协议/去 .git/host 小写/scp 转标准）+ root_name + first_commit｜ 验收：4 种 URL 形态归一用例（2026-08-18，8 形态全绿）
+- [x] **T13.3** link/relink + 二次判别（first_commit 一致+确认才合并，否则新建 pid 记 same_remote_as）+ collect 路径命中指纹复核（D10）｜ 验收：AC-E1/AC-E2 对抗用例（2026-08-18，二次判别+路径劫持复核全绿）
 
 ## T14 adapters/copilot（预估 2d）
 

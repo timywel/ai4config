@@ -153,8 +153,8 @@
 
 ## T22 sync（白名单同步，预估 2d）
 
-- [ ] **T22.1** sync init/push/pull/status（go-git 封装，白名单制 profiles/registry/config/exports）｜ 验收：bare 仓库双向同步用例
-- [ ] **T22.2** push 前置全仓敏感扫描（preflight，命中阻断）+ 换机 rebase 引导｜ 验收：红队 T-05 用例
+- [x] **T22.1** sync init/push/pull/status（go-git 封装，白名单制 profiles/registry/config/exports）｜ 验收：bare 仓库双向同步用例
+- [x] **T22.2** push 前置全仓敏感扫描（preflight，命中阻断）+ 换机 rebase 引导｜ 验收：红队 T-05 用例
 
 ## T23 TUI（预估 2d）
 

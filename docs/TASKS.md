@@ -99,3 +99,45 @@
 | # | 现象 | 影响流程 | 状态 |
 |---|------|---------|------|
 | — | （暂无） | | |
+
+---
+
+# P1 阶段任务（M2，ARCHITECTURE §12 P1）
+
+## T13 core/registry（项目关联与指纹，预估 2d）
+
+- [ ] **T13.1** registry.yaml 读写 + 项目注册表结构（projects: id/paths/fingerprint/profile/same_remote_as）｜ 验收：读写往返单测
+- [ ] **T13.2** 指纹计算：git remote 规范化（去协议/去 .git/host 小写/scp 转标准）+ root_name + first_commit｜ 验收：4 种 URL 形态归一用例
+- [ ] **T13.3** link/relink + 二次判别（first_commit 一致+确认才合并，否则新建 pid 记 same_remote_as）+ collect 路径命中指纹复核（D10）｜ 验收：AC-E1/AC-E2 对抗用例
+
+## T14 adapters/copilot（预估 2d）
+
+- [ ] **T14.1** Detect + Import：.github/copilot-instructions.md、instructions/*.instructions.md（applyTo→file_patterns）、prompts、agents、mcp.json（servers+inputs）、settings.json
+- [ ] **T14.2** Export + golden-file 双向
+
+## T15 adapters/zhanlu（预估 1.5d）
+
+- [ ] **T15.1** Detect + Import（zhanlu.json、AGENTS.md、.kilo/、~/.agents/skills；防御式探测）｜ 依赖本机实证校准
+- [ ] **T15.2** Export + golden-file 双向
+
+## T16 adapters/gemini（预估 1.5d）
+
+- [ ] **T16.1** Detect + Import（settings.json ~240 键、GEMINI.md、.gemini/）+ Export
+- [ ] **T16.2** golden-file 双向 + Antigravity 时效跟踪
+
+## T17 adapters/claude-desktop（预估 0.5d，轻量）
+
+- [ ] **T17.1** claude_desktop_config.json（mcpServers）采集/导出，与 claudecode 共享 MCP 适配代码
+
+## T18 adapters/grokbuild（预估 1.5d）
+
+- [ ] **T18.1** Detect + Import（~/.grok/config.toml + 项目 .grok/、hooks 14 事件、skills）+ Export
+
+## T19 secrets 完整化 + diff 命令（预估 1.5d）
+
+- [ ] **T19.1** collect 接入三级后端（keyring→file→none）+ secret_backend 记录 + 占位符回采保护接线
+- [ ] **T19.2** diff 独立命令（SSOT vs 磁盘现状 / profile 间）
+
+## T20 P1 验收（预估 0.5d）
+
+- [ ] **T20.1** 七适配器 golden-file 全绿 + Claude→Copilot、Codex→Zhanlu e2e + relink 演示 + 麒麟 V10 冒烟

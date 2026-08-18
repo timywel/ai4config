@@ -171,4 +171,4 @@
 
 ## T25 P2 验收（预估 0.5d）
 
-- [ ] **T25.1** AI 转换确认链完整演示 + sync preflight 阻断演示 + TUI 跑通 collect/export
+- [x] **T25.1** AI 转换确认链完整演示 + sync preflight 阻断演示 + TUI 跑通 collect/export

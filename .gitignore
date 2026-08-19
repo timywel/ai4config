@@ -6,6 +6,8 @@
 # ---------- Go 编译/测试产物 ----------
 /cfg4ai
 /cfg4ai.exe
+/cfg4ai-desktop.exe
+
 /dist/
 *.test
 *.out

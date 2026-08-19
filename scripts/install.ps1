@@ -1,4 +1,4 @@
-# cfg4ai 安装脚本（Windows PowerShell）
+﻿# cfg4ai 安装脚本（Windows PowerShell）
 # 用法：irm https://raw.githubusercontent.com/timywel/ai4config/main/scripts/install.ps1 | iex
 param(
   [string]$Version = "latest",
@@ -9,7 +9,7 @@ $Repo = "timywel/ai4config"
 
 if ($Version -eq "latest") {
   $rel = Invoke-RestMethod "https://api.github.com/repos/$Repo/releases/latest"
-  $Version = $rel.tag_name -replace '^v',''
+  $Version = $rel.tag_name -replace '^v', ''
 }
 
 $arch = if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") { "arm64" } else { "amd64" }
@@ -24,7 +24,6 @@ Expand-Archive (Join-Path $tmp "cfg4ai.zip") -DestinationPath $tmp -Force
 New-Item -ItemType Directory -Force -Path $Dest | Out-Null
 Copy-Item (Join-Path $tmp "cfg4ai.exe") -Destination (Join-Path $Dest "cfg4ai.exe") -Force
 
-# 加入用户 PATH（若未含）
 $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
 if ($userPath -notlike "*$Dest*") {
   [Environment]::SetEnvironmentVariable("Path", "$userPath;$Dest", "User")

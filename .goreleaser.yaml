@@ -43,11 +43,7 @@ nfpms:
     description: AI 编码工具配置的采集、治理与迁移系统
     license: MIT
     formats: [deb, rpm]
-    contents:
-      - src: cfg4ai
-        dst: /usr/local/bin/cfg4ai
-        file_info:
-          mode: 0755
+    # 二进制由 goreleaser 自动装入 /usr/bin；contents 仅放额外文件
 
 release:
   name_template: "v{{.Version}}"

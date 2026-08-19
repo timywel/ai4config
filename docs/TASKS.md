@@ -188,7 +188,7 @@
 
 ## T28 团队 profile 共享（预估 2d）
 
-- [ ] **T28.1** profile 远程订阅/下发（sync 白名单扩展 + 只读 remote 层采集）
+- [x] **T28.1** profile 远程订阅/下发（sync 白名单扩展 + 只读 remote 层采集）
 
 ## T29 P3 验收（预估 0.5d）
 

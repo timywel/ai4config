@@ -6,6 +6,8 @@ package migrate
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/timywel/ai4config/internal/adapters"
 	"github.com/timywel/ai4config/internal/core/aiassist"
@@ -168,6 +170,18 @@ func (e *Engine) loadLayers(projectPath string) ([]*profile.ScopedBundle, error)
 		return nil, fmt.Errorf("migrate: 加载全局 profile 失败: %w", err)
 	}
 
+	// remote 层（团队 profile，profiles/team/*；scope=remote，参与合并）
+	teamDir := e.Repo.Path(store.DirProfiles, "team")
+	if entries, err := os.ReadDir(teamDir); err == nil {
+		for _, te := range entries {
+			if !te.IsDir() {
+				continue
+			}
+			if sb, err := profile.Load(filepath.Join(teamDir, te.Name()), ir.ScopeRemote); err == nil {
+				layers = append(layers, sb)
+			}
+		}
+	}
 	// 项目层（按项目路径查注册表找 pid → profiles/projects/<pid>）
 	if projectPath != "" {
 		projDir, err := e.projectProfileDir(projectPath)

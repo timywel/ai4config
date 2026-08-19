@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>cfg4ai</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; margin: 0; background: #f6f7f9; color: #1f2329; }
+  header { background: #1a5fb4; color: #fff; padding: 14px 24px; font-weight: 700; }
+  main { max-width: 960px; margin: 24px auto; padding: 0 20px; }
+  .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 18px; }
+  h2 { font-size: 17px; margin: 0 0 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #eee; }
+  th { background: #f6f7f9; }
+  .kind { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 10px; background: #e8f0fa; color: #1a5fb4; }
+  .empty { color: #888; text-align: center; padding: 40px; }
+</style>
+</head>
+<body>
+<header>cfg4ai — AI 编码工具配置管理</header>
+<main>
+  <div class="card">
+    <h2>已采集实体（global profile）</h2>
+    <table>
+      <thead><tr><th>类型</th><th>ID</th><th>备注</th></tr></thead>
+      <tbody id="list"></tbody>
+    </table>
+    <div id="empty" class="empty" style="display:none">无数据（先 cfg4ai collect 采集）</div>
+  </div>
+</main>
+<script>
+fetch('/api/entities').then(r => r.json()).then(items => {
+  const tbody = document.getElementById('list');
+  if (!items || items.length === 0) { document.getElementById('empty').style.display = 'block'; return; }
+  items.forEach(it => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td><span class="kind">${it.kind}</span></td><td>${it.id}</td><td>${it.note || ''}</td>`;
+    tbody.appendChild(tr);
+  });
+});
+</script>
+</body>
+</html>

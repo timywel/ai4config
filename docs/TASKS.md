@@ -172,3 +172,24 @@
 ## T25 P2 验收（预估 0.5d）
 
 - [x] **T25.1** AI 转换确认链完整演示 + sync preflight 阻断演示 + TUI 跑通 collect/export
+---
+
+# P3 阶段任务（M4，ARCHITECTURE §12 P3）
+
+## T26 外置进程插件（适配器生态，预估 3d）
+
+- [ ] **T26.1** 插件协议定义（go-plugin net/rpc over stdio，Adapter 四方法 RPC 化）｜ 验收：协议接口单测
+- [ ] **T26.2** host 端：插件进程启动/调用/生命周期管理 + 注册到适配器注册表｜ 验收：示例插件进程互通
+- [ ] **T26.3** plugin 端 SDK：第三方实现 Adapter 的骨架包（任意语言可对等实现）+ 示例插件
+
+## T27 GUI（桌面应用，预估 3d）
+
+- [ ] **T27.1** GUI 技术选型与骨架（Wails/Fyne 评估）+ 主界面（实体浏览 + collect/export 操作）
+
+## T28 团队 profile 共享（预估 2d）
+
+- [ ] **T28.1** profile 远程订阅/下发（sync 白名单扩展 + 只读 remote 层采集）
+
+## T29 P3 验收（预估 0.5d）
+
+- [ ] **T29.1** 第三方适配器插件接入示例跑通 + GUI 主界面可用 + 团队共享演示

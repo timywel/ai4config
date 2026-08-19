@@ -1,9 +1,10 @@
-// Command cfg4ai-desktop 是 cfg4ai 的原生桌面壳（Gio 即时模式 GUI，纯 Go 无 CGO）。
-// 独立编译产物 cfg4ai-desktop.exe，与主 CLI（cfg4ai.exe）分离。
-// 界面：标题 + 已采集实体列表 + 退出。
+// Command cfg4ai-desktop 是 cfg4ai 的原生桌面应用（Gio 即时模式 GUI，纯 Go 无 CGO）。
+// 双击即用：全部功能（采集/迁移/快照/浏览）在窗口内点按钮完成，无需命令行。
 package main
 
 import (
+	"context"
+	"fmt"
 	"image/color"
 	"log"
 	"os"
@@ -16,22 +17,105 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 
+	"github.com/timywel/ai4config/internal/adapters"
+	_ "github.com/timywel/ai4config/internal/adapters/all"
 	"github.com/timywel/ai4config/internal/core/ir"
+	"github.com/timywel/ai4config/internal/core/migrate"
 	"github.com/timywel/ai4config/internal/core/profile"
+	"github.com/timywel/ai4config/internal/core/secrets"
 	"github.com/timywel/ai4config/internal/platform/paths"
 	"github.com/timywel/ai4config/internal/store"
 )
 
-type entityItem struct {
-	kind, id, note string
+type entityItem struct{ kind, id, note string }
+
+// pages
+const (
+	pageDashboard = iota
+	pageEntities
+	pageCollect
+	pageMigrate
+	pageSnapshot
+)
+
+var pageNames = []string{"仪表盘", "实体", "采集", "迁移", "快照"}
+
+// toolOptions 采集/迁移可选工具。
+var toolOptions = []string{"claude-code", "codex", "copilot", "zhanlu", "gemini", "claude-desktop", "grokbuild", "cursor", "windsurf", "aider", "cline", "roo", "opencode"}
+
+type desktopApp struct {
+	repo *store.Repo
+
+	page    int
+	items   []entityItem
+	stats   struct{ tools, entities, snapshots int }
+	msg     string
+	msgErr  bool
+	loading bool
+
+	// 控件
+	navBtns    []*widget.Clickable
+	refreshBtn *widget.Clickable
+
+	collectTool   *widget.Enum
+	collectBtn    *widget.Clickable
+	collectScope  *widget.Enum
+
+	migrateFrom *widget.Enum
+	migrateTo   *widget.Enum
+	migrateBtn  *widget.Clickable
+	migrateDry  *widget.Bool
+
+	snapNote    *widget.Editor
+	snapCreate  *widget.Clickable
+	snapList    []snapItem
+
+	entityList *widget.List
+	snapWidget *widget.List
+}
+
+type snapItem struct {
+	id, note string
+	files    int
+	restore  *widget.Clickable
+}
+
+func newDesktopApp() *desktopApp {
+	d := &desktopApp{
+		entityList:   &widget.List{List: layout.List{Axis: layout.Vertical}},
+		snapWidget:   &widget.List{List: layout.List{Axis: layout.Vertical}},
+		collectTool:  &widget.Enum{},
+		collectScope: &widget.Enum{},
+		migrateFrom:  &widget.Enum{},
+		migrateTo:    &widget.Enum{},
+		snapNote:     &widget.Editor{},
+		refreshBtn:   new(widget.Clickable),
+		collectBtn:   new(widget.Clickable),
+		migrateBtn:   new(widget.Clickable),
+		snapCreate:   new(widget.Clickable),
+	}
+	for range pageNames {
+		d.navBtns = append(d.navBtns, new(widget.Clickable))
+	}
+	d.collectTool.Value = ""
+	d.collectScope.Value = "all"
+	d.migrateFrom.Value = "claude-code"
+	d.migrateTo.Value = "codex"
+
+	root, err := paths.DataHome()
+	if err == nil {
+		d.repo, _ = store.Open(root)
+	}
+	d.reload()
+	return d
 }
 
 func main() {
-	items := loadEntities()
+	d := newDesktopApp()
 	go func() {
 		w := new(app.Window)
-		w.Option(app.Title("cfg4ai"), app.Size(unit.Dp(900), unit.Dp(640)))
-		if err := loop(w, items); err != nil {
+		w.Option(app.Title("cfg4ai"), app.Size(unit.Dp(960), unit.Dp(680)))
+		if err := d.loop(w); err != nil {
 			log.Fatal(err)
 		}
 		os.Exit(0)
@@ -39,50 +123,51 @@ func main() {
 	app.Main()
 }
 
-// loadEntities 读 global profile 的实体。
-func loadEntities() []entityItem {
-	var items []entityItem
-	root, err := paths.DataHome()
-	if err != nil {
-		return items
+func (d *desktopApp) reload() {
+	d.items = nil
+	if d.repo == nil {
+		return
 	}
-	repo, err := store.Open(root)
-	if err != nil {
-		return items
+	sb, err := profile.Load(d.repo.Path(store.DirProfiles, "global"), ir.ScopeGlobal)
+	if err == nil {
+		b := sb.Bundle
+		add := func(kind, id, note string) { d.items = append(d.items, entityItem{kind, id, note}) }
+		for _, x := range b.Instructions {
+			add("指令", x.ID, x.Description)
+		}
+		for _, x := range b.MCPServers {
+			add("MCP", x.ID, x.Command+x.URL)
+		}
+		for _, x := range b.Skills {
+			add("技能", x.ID, x.Description)
+		}
+		for _, x := range b.Agents {
+			add("Agent", x.ID, x.Description)
+		}
+		for _, x := range b.Hooks {
+			add("Hook", x.ID, string(x.Event))
+		}
+		for _, x := range b.Settings {
+			add("设置", x.ID, x.Key)
+		}
 	}
-	sb, err := profile.Load(repo.Path(store.DirProfiles, "global"), ir.ScopeGlobal)
-	if err != nil {
-		return items
+	d.stats.tools = len(adapters.List())
+	d.stats.entities = len(d.items)
+	if snaps, err := d.repo.ListSnapshots(); err == nil {
+		d.stats.snapshots = len(snaps)
+		d.snapList = nil
+		for _, s := range snaps {
+			d.snapList = append(d.snapList, snapItem{id: s.ID, note: s.Note, files: len(s.Files), restore: new(widget.Clickable)})
+		}
 	}
-	b := sb.Bundle
-	add := func(kind, id, note string) { items = append(items, entityItem{kind, id, note}) }
-	for _, x := range b.Instructions {
-		add("指令", x.ID, x.Description)
-	}
-	for _, x := range b.MCPServers {
-		add("MCP", x.ID, x.Command+x.URL)
-	}
-	for _, x := range b.Skills {
-		add("技能", x.ID, x.Description)
-	}
-	for _, x := range b.Agents {
-		add("Agent", x.ID, x.Description)
-	}
-	for _, x := range b.Hooks {
-		add("Hook", x.ID, string(x.Event))
-	}
-	for _, x := range b.Settings {
-		add("设置", x.ID, x.Key)
-	}
-	return items
 }
-
-func loop(w *app.Window, items []entityItem) error {
+// loop 主事件循环 + 布局。
+func (d *desktopApp) loop(w *app.Window) error {
 	th := material.NewTheme()
 	var ops op.Ops
-	list := &widget.List{List: layout.List{Axis: layout.Vertical}}
-	quitBtn := new(widget.Clickable)
 	titleColor := color.NRGBA{R: 0x1a, G: 0x5f, B: 0xb4, A: 0xff}
+	errColor := color.NRGBA{R: 0xb0, G: 0x3a, B: 0x3a, A: 0xff}
+	okColor := color.NRGBA{R: 0x1e, G: 0x7e, B: 0x34, A: 0xff}
 
 	for {
 		switch e := w.Event().(type) {
@@ -91,51 +176,498 @@ func loop(w *app.Window, items []entityItem) error {
 		case app.FrameEvent:
 			gtx := app.NewContext(&ops, e)
 
-			if quitBtn.Clicked(gtx) {
-				return nil
+			// 导航点击
+			for i, btn := range d.navBtns {
+				if btn.Clicked(gtx) {
+					d.page = i
+					if i == pageDashboard || i == pageSnapshot {
+						d.reload()
+					}
+				}
+			}
+			if d.refreshBtn.Clicked(gtx) {
+				d.reload()
+			}
+			// 采集
+			if d.collectBtn.Clicked(gtx) && !d.loading {
+				d.loading = true
+				d.msg = "采集中…"
+				d.msgErr = false
+				go d.doCollect()
+			}
+			// 迁移
+			if d.migrateBtn.Clicked(gtx) && !d.loading {
+				d.loading = true
+				d.msg = "迁移中…"
+				d.msgErr = false
+				go d.doMigrate()
+			}
+			// 快照创建
+			if d.snapCreate.Clicked(gtx) && !d.loading {
+				d.loading = true
+				d.msg = "创建快照中…"
+				d.msgErr = false
+				go d.doSnapshotCreate()
+			}
+			// 快照恢复
+			for _, s := range d.snapList {
+				if s.restore.Clicked(gtx) && !d.loading {
+					d.loading = true
+					d.msg = "恢复中…"
+					d.msgErr = false
+					go d.doSnapshotRestore(s.id)
+				}
 			}
 
-			layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+			// 布局：左侧导航 + 右侧内容
+			layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.UniformInset(unit.Dp(16)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+					return layout.UniformInset(unit.Dp(12)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								lbl := material.H5(th, "cfg4ai — 已采集实体")
+								lbl := material.H6(th, "cfg4ai")
 								lbl.Color = titleColor
+								lbl.Font.Weight = font.Bold
 								return lbl.Layout(gtx)
 							}),
-							layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return layout.Dimensions{} }),
+							layout.Rigid(layout.Spacer{Height: unit.Dp(16)}.Layout),
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								btn := material.Button(th, quitBtn, "退出")
-								return btn.Layout(gtx)
+								return d.navLayout(gtx, th)
 							}),
 						)
 					})
 				}),
-				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return layout.UniformInset(unit.Dp(16)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						if len(items) == 0 {
-							return material.Body1(th, "无数据（先 cfg4ai collect 采集）").Layout(gtx)
-						}
-						return list.Layout(gtx, len(items), func(gtx layout.Context, i int) layout.Dimensions {
-							it := items[i]
-							return layout.UniformInset(unit.Dp(6)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-								return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
-									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-										lbl := material.Label(th, unit.Sp(13), "["+it.kind+"]")
-										lbl.Color = titleColor
-										lbl.Font.Weight = font.Bold
-										return lbl.Layout(gtx)
-									}),
-									layout.Rigid(layout.Spacer{Width: unit.Dp(10)}.Layout),
-									layout.Rigid(material.Label(th, unit.Sp(13), it.id).Layout),
-								)
-							})
-						})
+						return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								return d.pageLayout(gtx, th, titleColor, errColor, okColor)
+							}),
+						)
 					})
 				}),
 			)
 			e.Frame(gtx.Ops)
 		}
 	}
+}
+
+// navLayout 左侧导航。
+func (d *desktopApp) navLayout(gtx layout.Context, th *material.Theme) layout.Dimensions {
+	var children []layout.FlexChild
+	for i, name := range pageNames {
+		i, name := i, name
+		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			btn := material.Button(th, d.navBtns[i], name)
+			if d.page == i {
+				btn.Background = color.NRGBA{R: 0x1a, G: 0x5f, B: 0xb4, A: 0xff}
+			}
+			return layout.UniformInset(unit.Dp(4)).Layout(gtx, btn.Layout)
+		}))
+	}
+	children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout))
+	children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		return layout.UniformInset(unit.Dp(4)).Layout(gtx, material.Button(th, d.refreshBtn, "刷新").Layout)
+	}))
+	return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
+}
+// pageLayout 右侧内容区（按当前页切换）。
+func (d *desktopApp) pageLayout(gtx layout.Context, th *material.Theme, titleColor, errColor, okColor color.NRGBA) layout.Dimensions {
+	var children []layout.FlexChild
+
+	// 状态消息条
+	if d.msg != "" {
+		msg := d.msg
+		isErr := d.msgErr
+		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							lbl := material.Body2(th, msg)
+			if isErr {
+				lbl.Color = errColor
+			} else {
+				lbl.Color = okColor
+			}
+			return layout.UniformInset(unit.Dp(6)).Layout(gtx, lbl.Layout)
+		}))
+	}
+
+	switch d.page {
+	case pageDashboard:
+		children = append(children, d.dashboardPage(th)...)
+	case pageEntities:
+		children = append(children, d.entitiesPage(th)...)
+	case pageCollect:
+		children = append(children, d.collectPage(th, titleColor)...)
+	case pageMigrate:
+		children = append(children, d.migratePage(th, titleColor)...)
+	case pageSnapshot:
+		children = append(children, d.snapshotPage(th, titleColor)...)
+	}
+	return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
+}
+
+// dashboardPage 仪表盘。
+func (d *desktopApp) dashboardPage(th *material.Theme) []layout.FlexChild {
+	return []layout.FlexChild{
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return material.H5(th, "概览").Layout(gtx)
+		}),
+		layout.Rigid(layout.Spacer{Height: unit.Dp(12)}.Layout),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+				layout.Rigid(statCard(th, fmt.Sprintf("%d", d.stats.tools), "已接入工具")),
+				layout.Rigid(layout.Spacer{Width: unit.Dp(12)}.Layout),
+				layout.Rigid(statCard(th, fmt.Sprintf("%d", d.stats.entities), "已采集实体")),
+				layout.Rigid(layout.Spacer{Width: unit.Dp(12)}.Layout),
+				layout.Rigid(statCard(th, fmt.Sprintf("%d", d.stats.snapshots), "快照数")),
+			)
+		}),
+		layout.Rigid(layout.Spacer{Height: unit.Dp(12)}.Layout),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			if d.repo != nil {
+				return material.Body2(th, "仓库："+d.repo.Root).Layout(gtx)
+			}
+			return layout.Dimensions{}
+		}),
+	}
+}
+
+func statCard(th *material.Theme, num, label string) layout.Widget {
+	return func(gtx layout.Context) layout.Dimensions {
+		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				l := material.H4(th, num)
+				l.Alignment = 1
+				return l.Layout(gtx)
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				l := material.Body2(th, label)
+				l.Alignment = 1
+				return l.Layout(gtx)
+			}),
+		)
+	}
+}
+
+// entitiesPage 实体列表。
+func (d *desktopApp) entitiesPage(th *material.Theme) []layout.FlexChild {
+	return []layout.FlexChild{
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return material.H6(th, fmt.Sprintf("已采集实体（%d）", len(d.items))).Layout(gtx)
+		}),
+		layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			if len(d.items) == 0 {
+				return material.Body1(th, "无数据——请到「采集」页采集").Layout(gtx)
+			}
+			return d.entityList.Layout(gtx, len(d.items), func(gtx layout.Context, i int) layout.Dimensions {
+				it := d.items[i]
+				return layout.UniformInset(unit.Dp(4)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return material.Body2(th, "["+it.kind+"] "+it.id+"  "+it.note).Layout(gtx)
+				})
+			})
+		}),
+	}
+}
+// collectPage 采集页。
+func (d *desktopApp) collectPage(th *material.Theme, titleColor color.NRGBA) []layout.FlexChild {
+	return []layout.FlexChild{
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return material.H6(th, "采集配置").Layout(gtx)
+		}),
+		layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return material.Body2(th, "选择工具（全部留空=所有）：").Layout(gtx)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return d.enumLayout(gtx, th, d.collectTool, toolOptions)
+				}),
+			)
+		}),
+		layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return material.Button(th, d.collectBtn, "开始采集").Layout(gtx)
+		}),
+	}
+}
+
+// migratePage 迁移页。
+func (d *desktopApp) migratePage(th *material.Theme, titleColor color.NRGBA) []layout.FlexChild {
+	return []layout.FlexChild{
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return material.H6(th, "迁移 / 导出").Layout(gtx)
+		}),
+		layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return material.Body2(th, "从：").Layout(gtx)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return d.enumLayout(gtx, th, d.migrateFrom, toolOptions)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return material.Body2(th, "到：").Layout(gtx)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return d.enumLayout(gtx, th, d.migrateTo, toolOptions)
+		}),
+		layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+				layout.Rigid(material.CheckBox(th, d.migrateDry, "先预览（dry-run）").Layout),
+				layout.Rigid(layout.Spacer{Width: unit.Dp(12)}.Layout),
+				layout.Rigid(material.Button(th, d.migrateBtn, "开始迁移").Layout),
+			)
+		}),
+	}
+}
+
+// snapshotPage 快照页。
+func (d *desktopApp) snapshotPage(th *material.Theme, titleColor color.NRGBA) []layout.FlexChild {
+	var children []layout.FlexChild
+	children = append(children,
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return material.H6(th, "快照").Layout(gtx)
+		}),
+		layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+					ed := material.Editor(th, d.snapNote, "备注（可选）")
+					return ed.Layout(gtx)
+				}),
+				layout.Rigid(layout.Spacer{Width: unit.Dp(8)}.Layout),
+				layout.Rigid(material.Button(th, d.snapCreate, "创建快照").Layout),
+			)
+		}),
+		layout.Rigid(layout.Spacer{Height: unit.Dp(12)}.Layout),
+	)
+	for _, s := range d.snapList {
+		s := s
+		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.UniformInset(unit.Dp(4)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+						return material.Body2(th, s.id+"  "+s.note+"  ("+fmt.Sprintf("%d", s.files)+" 文件)").Layout(gtx)
+					}),
+					layout.Rigid(material.Button(th, s.restore, "恢复").Layout),
+				)
+			})
+		}))
+	}
+	return children
+}
+
+// enumLayout 单选组布局。
+func (d *desktopApp) enumLayout(gtx layout.Context, th *material.Theme, e *widget.Enum, options []string) layout.Dimensions {
+	var children []layout.FlexChild
+	for _, opt := range options {
+		opt := opt
+		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return material.RadioButton(th, e, opt, opt).Layout(gtx)
+		}))
+	}
+	return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
+}
+// ---- 操作（goroutine 异步，避免阻塞 UI） ----
+
+func (d *desktopApp) doCollect() {
+	defer func() { d.loading = false }()
+	if d.repo == nil {
+		d.setMsg("仓库未就绪", true)
+		return
+	}
+	scanner := secrets.DefaultScanner()
+	backend, _ := secrets.ResolveBackend("", d.repo.Root, nil)
+	totalNew := 0
+	for _, a := range adapters.List() {
+		tool := d.collectTool.Value
+		if tool != "" && string(a.Meta().ID) != tool {
+			continue
+		}
+		locs, err := a.Detect(context.Background())
+		if err != nil {
+			continue
+		}
+		for _, loc := range locs {
+			b, err := a.Import(context.Background(), loc)
+			if err != nil {
+				continue
+			}
+			sanitizeBundleDesktop(b, scanner, backend)
+			n, _, _, err := reconcileIntoDesktop(d.repo, loc.Scope, b)
+			if err == nil {
+				totalNew += n
+			}
+		}
+	}
+	d.setMsg(fmt.Sprintf("采集完成，新增 %d 条", totalNew), false)
+	d.reload()
+}
+
+func (d *desktopApp) doMigrate() {
+	defer func() { d.loading = false }()
+	if d.repo == nil {
+		d.setMsg("仓库未就绪", true)
+		return
+	}
+	from := d.migrateFrom.Value
+	to := d.migrateTo.Value
+	if from == to {
+		d.setMsg("源与目标不能相同", true)
+		return
+	}
+	// collect from
+	scanner := secrets.DefaultScanner()
+	backend, _ := secrets.ResolveBackend("", d.repo.Root, nil)
+	for _, a := range adapters.List() {
+		if string(a.Meta().ID) != from {
+			continue
+		}
+		locs, _ := a.Detect(context.Background())
+		for _, loc := range locs {
+			b, err := a.Import(context.Background(), loc)
+			if err != nil {
+				continue
+			}
+			sanitizeBundleDesktop(b, scanner, backend)
+			reconcileIntoDesktop(d.repo, loc.Scope, b)
+		}
+	}
+	// export to
+	e := &migrate.Engine{Repo: d.repo}
+	res, err := e.Export(context.Background(), migrate.ExportRequest{
+		To:             adapters.ToolID(to),
+		DryRun:         d.migrateDry.Value,
+		IncludeForeign: true,
+	})
+	if err != nil {
+		d.setMsg("迁移失败: "+err.Error(), true)
+		return
+	}
+	verb := "已写入"
+	if d.migrateDry.Value {
+		verb = "预览（未落盘）"
+	}
+	d.setMsg(fmt.Sprintf("迁移到 %s：%s %d 个文件", to, verb, len(res.Written)), false)
+	d.reload()
+}
+
+func (d *desktopApp) doSnapshotCreate() {
+	defer func() { d.loading = false }()
+	if d.repo == nil {
+		d.setMsg("仓库未就绪", true)
+		return
+	}
+	note := d.snapNote.Text()
+	id, err := d.repo.CreateSnapshot(note)
+	if err != nil {
+		d.setMsg("快照失败: "+err.Error(), true)
+		return
+	}
+	d.setMsg("已创建快照 "+id, false)
+	d.reload()
+}
+
+func (d *desktopApp) doSnapshotRestore(id string) {
+	defer func() { d.loading = false }()
+	if d.repo == nil {
+		d.setMsg("仓库未就绪", true)
+		return
+	}
+	if _, err := d.repo.CreateSnapshot("before-restore-" + id); err != nil {
+		d.setMsg("反向快照失败: "+err.Error(), true)
+		return
+	}
+	if err := d.repo.RestoreSnapshot(id); err != nil {
+		d.setMsg("恢复失败: "+err.Error(), true)
+		return
+	}
+	d.setMsg("已恢复快照 "+id, false)
+	d.reload()
+}
+
+func (d *desktopApp) setMsg(s string, isErr bool) {
+	d.msg = s
+	d.msgErr = isErr
+}
+
+// 桌面端复用 cmd 的采集辅助（简化内联版）。
+func sanitizeBundleDesktop(b *ir.Bundle, scanner *secrets.Scanner, backend secrets.Backend) {
+	profileName := "global"
+	if b.Scope == ir.ScopeProject {
+		profileName = "project"
+	}
+	for i := range b.MCPServers {
+		s := &b.MCPServers[i]
+		s.Env, _, _ = secrets.SanitizeMap(backend, scanner, profileName, s.ID, "env", s.Env)
+		s.Headers, _, _ = secrets.SanitizeMap(backend, scanner, profileName, s.ID, "headers", s.Headers)
+	}
+}
+
+func reconcileIntoDesktop(repo *store.Repo, scope ir.Scope, b *ir.Bundle) (int, int, int, error) {
+	dir := repo.Path(store.DirProfiles, "global")
+	if scope != ir.ScopeGlobal {
+		dir = repo.Path(store.DirProfiles, "projects", "default")
+	}
+	var existing *ir.Bundle
+	var man *profile.Manifest
+	if sb, err := profile.Load(dir, scope); err == nil {
+		existing = sb.Bundle
+		man = sb.Manifest
+	} else {
+		existing = &ir.Bundle{IRVersion: profile.CurrentIRVersion, Scope: scope}
+		man = &profile.Manifest{IRVersion: profile.CurrentIRVersion, Profile: profile.Meta{Name: "global", Kind: "global"}}
+	}
+	merged, n, u, t := reconcileBundlesDesktop(existing, b)
+	if err := profile.Save(dir, merged, man); err != nil {
+		return 0, 0, 0, err
+	}
+	return n, u, t, nil
+}
+
+func reconcileBundlesDesktop(existing, fresh *ir.Bundle) (*ir.Bundle, int, int, int) {
+	// 简化：按 id 覆盖更新（桌面端采集复用）
+	result := *existing
+	added := 0
+	for _, f := range fresh.MCPServers {
+		found := false
+		for i := range result.MCPServers {
+			if result.MCPServers[i].ID == f.ID {
+				result.MCPServers[i] = f
+				found = true
+			}
+		}
+		if !found {
+			result.MCPServers = append(result.MCPServers, f)
+			added++
+		}
+	}
+	for _, f := range fresh.Instructions {
+		found := false
+		for i := range result.Instructions {
+			if result.Instructions[i].ID == f.ID {
+				result.Instructions[i] = f
+				found = true
+			}
+		}
+		if !found {
+			result.Instructions = append(result.Instructions, f)
+			added++
+		}
+	}
+	for _, f := range fresh.Skills {
+		found := false
+		for i := range result.Skills {
+			if result.Skills[i].ID == f.ID {
+				result.Skills[i] = f
+				found = true
+			}
+		}
+		if !found {
+			result.Skills = append(result.Skills, f)
+			added++
+		}
+	}
+	return &result, added, 0, 0
 }

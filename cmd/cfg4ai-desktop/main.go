@@ -57,18 +57,18 @@ type desktopApp struct {
 	navBtns    []*widget.Clickable
 	refreshBtn *widget.Clickable
 
-	collectTool   *widget.Enum
-	collectBtn    *widget.Clickable
-	collectScope  *widget.Enum
+	collectTool  *widget.Enum
+	collectBtn   *widget.Clickable
+	collectScope *widget.Enum
 
 	migrateFrom *widget.Enum
 	migrateTo   *widget.Enum
 	migrateBtn  *widget.Clickable
 	migrateDry  *widget.Bool
 
-	snapNote    *widget.Editor
-	snapCreate  *widget.Clickable
-	snapList    []snapItem
+	snapNote   *widget.Editor
+	snapCreate *widget.Clickable
+	snapList   []snapItem
 
 	entityList *widget.List
 	snapWidget *widget.List
@@ -161,6 +161,7 @@ func (d *desktopApp) reload() {
 		}
 	}
 }
+
 // loop 主事件循环 + 布局。
 func (d *desktopApp) loop(w *app.Window) error {
 	th := material.NewTheme()
@@ -271,6 +272,7 @@ func (d *desktopApp) navLayout(gtx layout.Context, th *material.Theme) layout.Di
 	}))
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
 }
+
 // pageLayout 右侧内容区（按当前页切换）。
 func (d *desktopApp) pageLayout(gtx layout.Context, th *material.Theme, titleColor, errColor, okColor color.NRGBA) layout.Dimensions {
 	var children []layout.FlexChild
@@ -280,7 +282,7 @@ func (d *desktopApp) pageLayout(gtx layout.Context, th *material.Theme, titleCol
 		msg := d.msg
 		isErr := d.msgErr
 		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							lbl := material.Body2(th, msg)
+			lbl := material.Body2(th, msg)
 			if isErr {
 				lbl.Color = errColor
 			} else {
@@ -368,6 +370,7 @@ func (d *desktopApp) entitiesPage(th *material.Theme) []layout.FlexChild {
 		}),
 	}
 }
+
 // collectPage 采集页。
 func (d *desktopApp) collectPage(th *material.Theme, titleColor color.NRGBA) []layout.FlexChild {
 	return []layout.FlexChild{
@@ -469,6 +472,7 @@ func (d *desktopApp) enumLayout(gtx layout.Context, th *material.Theme, e *widge
 	}
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
 }
+
 // ---- 操作（goroutine 异步，避免阻塞 UI） ----
 
 func (d *desktopApp) doCollect() {

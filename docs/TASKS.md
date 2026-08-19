@@ -184,7 +184,7 @@
 
 ## T27 GUI（桌面应用，预估 3d）
 
-- [ ] **T27.1** GUI 技术选型与骨架（Wails/Fyne 评估）+ 主界面（实体浏览 + collect/export 操作）
+- [x] **T27.1** GUI 技术选型与骨架（Wails/Fyne 评估）+ 主界面（实体浏览 + collect/export 操作）
 
 ## T28 团队 profile 共享（预估 2d）
 

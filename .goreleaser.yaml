@@ -1,0 +1,58 @@
+# cfg4ai 发布配置（goreleaser）
+# 纪律：CGO_ENABLED=0 纯静态（麒麟/静态分发）；六 target；checksums；deb/rpm。
+version: 2
+project_name: cfg4ai
+
+builds:
+  - id: cfg4ai
+    main: ./cmd/cfg4ai
+    binary: cfg4ai
+    env:
+      - CGO_ENABLED=0
+    goos: [windows, darwin, linux]
+    goarch: [amd64, arm64, loong64]
+    ignore:
+      - goos: windows
+        goarch: loong64
+      - goos: darwin
+        goarch: loong64
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+
+archives:
+  - id: default
+    formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files: [README.md, docs/cfg4ai-design.html]
+  - id: windows
+    formats: [zip]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files: [README.md]
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+# Linux 包（deb/rpm），麒麟等发行版可装
+nfpms:
+  - id: cfg4ai
+    package_name: cfg4ai
+    file_name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    vendor: cfg4ai
+    homepage: https://github.com/timywel/ai4config
+    description: AI 编码工具配置的采集、治理与迁移系统
+    license: MIT
+    formats: [deb, rpm]
+    contents:
+      - src: cfg4ai
+        dst: /usr/local/bin/cfg4ai
+        file_info:
+          mode: 0755
+
+release:
+  name_template: "v{{.Version}}"
+  footer: |
+    ## 安装
+    - Windows: 下载 zip 解压，或用 `install.ps1`
+    - macOS/Linux: 下载 tar.gz，或用 `install.sh`
+    - Debian/Ubuntu/麒麟(deb)：`.deb`；麒麟(rpm)：`.rpm`

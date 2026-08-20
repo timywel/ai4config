@@ -193,3 +193,43 @@
 ## T29 P3 验收（预估 0.5d）
 
 - [x] **T29.1** 第三方适配器插件接入示例跑通 + GUI 主界面可用 + 团队共享演示
+---
+
+# 优化线任务（OPT，依据 docs/OPTIMIZATION-PLAN.md）
+
+## W-A 设计基座 + 最小可信（先行波次）
+
+- [ ] **OPT-A1** 修 goroutine 不重绘 bug（doXxx 完成后 w.Invalidate()）
+- [ ] **OPT-A2** 设计系统落地（internal/desktopui 包：双主题色板/字体/图标/卡片/Toast/Modal/组件库）
+- [ ] **OPT-A3** 导航改 component.NewNav 图标导航 + 工具选择改 chip 流式布局
+- [ ] **OPT-A4** F01 实体详情浏览（三栏+详情抽屉按类型渲染）
+- [ ] **OPT-A5** F02 过滤+全文搜索
+
+## W-B 管理核心
+
+- [ ] **OPT-B1** F03 条目编辑（表单化+校验+防覆盖）
+- [ ] **OPT-B2** F04 新建/删除回收站/重命名级联
+- [ ] **OPT-B3** F05 启停+annotations.yaml 侧车+applies_to 矩阵
+- [ ] **OPT-B4** F08 secret 管理界面
+
+## W-C 信任与治理
+
+- [ ] **OPT-C1** F06 漂移冲突处置视图
+- [ ] **OPT-C2** F07 历史时间线+条目级恢复
+- [ ] **OPT-C3** F14 健康看板+MCP 连通性
+- [ ] **OPT-C4** F15 审计日志时间线
+
+## W-D / W-E（增强与效率，详见 OPTIMIZATION-PLAN §4）
+
+- [ ] F09-F13、F16、F17-F23 按波次排期
+
+---
+
+## 规格变更候选（走 PROJECT-PLAN §7 变更流程）
+
+| # | 变更 | 涉及规格 |
+|---|------|---------|
+| S1 | 实体头增 disabled 字段 | IR-SCHEMA §1.1/§3 |
+| S2 | annotations.yaml 侧车入规格 | IR-SCHEMA §1、CLI-SPEC |
+| S3 | .cfg4aibak 备份包格式 | ARCHITECTURE §7、CLI-SPEC |
+| S4 | doctor 结构化 HealthReport | CLI-SPEC §9 |

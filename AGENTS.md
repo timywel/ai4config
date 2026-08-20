@@ -18,6 +18,7 @@
 | `docs/TASKS.md` | **任务看板**：P0 任务分解（T0–T12，依赖/预估/验收）、变更候选与缺陷区 |
 | `docs/research/`、`docs/review/` | 调研档案（20 工具）与评审/红队报告 |
 | `docs/cfg4ai-design.html` | 单文件叙述版总览（适合通读） |
+| `docs/DESKTOP-UI-DESIGN.md` | cfg4ai-desktop（Go+Gio）UI/UX 设计规格 v1.0：深浅双主题 token、布局骨架、组件规格、动画清单、首次引导 |
 
 **开发铁律**：① 规格先行——代码改动涉及规格行为时必须先改规格再写码（PROJECT-PLAN §7）；② 完成任务按 PROJECT-PLAN §5 五条门禁自检后在 TASKS.md 勾选。
 

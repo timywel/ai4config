@@ -8,6 +8,7 @@ import (
 	"image/color"
 	"log"
 	"os"
+	"strings"
 
 	"gioui.org/app"
 	"gioui.org/font"
@@ -82,6 +83,12 @@ type desktopApp struct {
 
 	ts    *desktopui.ThemeStore // 主题（深色默认）
 	icons desktopui.IconSet     // 图标集
+
+	bundle      *ir.Bundle                // 完整实体数据（详情用）
+	selKind     string                    // 选中实体类型
+	selID       string                    // 选中实体 id
+	detailBtns  map[int]*widget.Clickable // 实体行点击
+	closeDetail *widget.Clickable         // 关闭详情
 }
 
 type snapItem struct {
@@ -111,6 +118,8 @@ func newDesktopApp() *desktopApp {
 	d.collectScope.Value = "all"
 	d.ts = desktopui.NewThemeStore(true) // 深色默认
 	d.icons = desktopui.MustIcons()
+	d.detailBtns = map[int]*widget.Clickable{}
+	d.closeDetail = new(widget.Clickable)
 	d.migrateFrom.Value = "claude-code"
 	d.migrateTo.Value = "codex"
 
@@ -137,11 +146,13 @@ func main() {
 
 func (d *desktopApp) reload() {
 	d.items = nil
+	d.bundle = nil
 	if d.repo == nil {
 		return
 	}
 	sb, err := profile.Load(d.repo.Path(store.DirProfiles, "global"), ir.ScopeGlobal)
 	if err == nil {
+		d.bundle = sb.Bundle
 		b := sb.Bundle
 		add := func(kind, id, note string) { d.items = append(d.items, entityItem{kind, id, note}) }
 		for _, x := range b.Instructions {
@@ -203,6 +214,9 @@ func (d *desktopApp) loop(w *app.Window) error {
 			}
 			if d.refreshBtn.Clicked(gtx) {
 				d.reload()
+			}
+			if d.closeDetail.Clicked(gtx) {
+				d.selID = ""
 			}
 			// 采集
 			if d.collectBtn.Clicked(gtx) && !d.loading {
@@ -411,25 +425,109 @@ func statCard(th *material.Theme, num, label string) layout.Widget {
 	}
 }
 
-// entitiesPage 实体列表。
+// entitiesPage 实体列表（可点行）+ 详情面板（按类型渲染）。
 func (d *desktopApp) entitiesPage(th *material.Theme) []layout.FlexChild {
-	return []layout.FlexChild{
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return material.H6(th, fmt.Sprintf("已采集实体（%d）", len(d.items))).Layout(gtx)
-		}),
-		layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			if len(d.items) == 0 {
-				return material.Body1(th, "无数据——请到「采集」页采集").Layout(gtx)
-			}
-			return d.entityList.Layout(gtx, len(d.items), func(gtx layout.Context, i int) layout.Dimensions {
-				it := d.items[i]
-				return layout.UniformInset(unit.Dp(4)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return material.Body2(th, "["+it.kind+"] "+it.id+"  "+it.note).Layout(gtx)
-				})
-			})
-		}),
+	cs := d.ts.Colors
+	var children []layout.FlexChild
+	children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		return material.H6(th, fmt.Sprintf("已采集实体（%d）", len(d.items))).Layout(gtx)
+	}))
+	children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout))
+	// 详情面板（有选中时）
+	if d.selID != "" {
+		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return d.detailPanel(gtx, th, cs)
+		}))
+		children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout))
 	}
+	children = append(children, layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+		if len(d.items) == 0 {
+			return material.Body1(th, "无数据——请到「采集」页采集").Layout(gtx)
+		}
+		return d.entityList.Layout(gtx, len(d.items), func(gtx layout.Context, i int) layout.Dimensions {
+			it := d.items[i]
+			if d.detailBtns[i] == nil {
+				d.detailBtns[i] = new(widget.Clickable)
+			}
+			btn := d.detailBtns[i]
+			if btn.Clicked(gtx) {
+				d.selKind = it.kind
+				d.selID = it.id
+			}
+			selected := d.selID == it.id
+			return btn.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				pointer.CursorPointer.Add(gtx.Ops)
+				bg := color.NRGBA{}
+				if selected {
+					bg = cs.SurfaceHover
+				} else if btn.Hovered() {
+					bg = cs.SurfaceHover
+				}
+				return layout.Stack{}.Layout(gtx,
+					layout.Expanded(func(gtx layout.Context) layout.Dimensions {
+						if selected || btn.Hovered() {
+							r := gtx.Dp(unit.Dp(desktopui.RadiusM))
+							rr := clip.RRect{Rect: image.Rectangle{Max: gtx.Constraints.Min}, NE: r, NW: r, SE: r, SW: r}
+							paint.FillShape(gtx.Ops, bg, rr.Op(gtx.Ops))
+						}
+						return layout.Dimensions{Size: gtx.Constraints.Min}
+					}),
+					layout.Stacked(func(gtx layout.Context) layout.Dimensions {
+						return layout.UniformInset(unit.Dp(desktopui.SpaceM)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									return desktopui.Badge(gtx, cs, it.kind, cs.Accent, func(gtx layout.Context) layout.Dimensions {
+										lbl := material.Caption(th, it.kind)
+										lbl.Color = cs.Surface
+										return lbl.Layout(gtx)
+									})
+								}),
+								layout.Rigid(layout.Spacer{Width: unit.Dp(desktopui.SpaceM)}.Layout),
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									lbl := material.Body2(th, it.id)
+									lbl.Color = cs.Text
+									lbl.Font.Weight = font.Medium
+									return lbl.Layout(gtx)
+								}),
+								layout.Rigid(layout.Spacer{Width: unit.Dp(desktopui.SpaceS)}.Layout),
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									lbl := material.Caption(th, it.note)
+									lbl.Color = cs.TextSecondary
+									return lbl.Layout(gtx)
+								}),
+							)
+						})
+					}),
+				)
+			})
+		})
+	}))
+	return children
+}
+
+// detailPanel 详情面板（按类型渲染完整内容）。
+func (d *desktopApp) detailPanel(gtx layout.Context, th *material.Theme, cs desktopui.Colors) layout.Dimensions {
+	return desktopui.Card(gtx, cs, nil, func(gtx layout.Context) layout.Dimensions {
+		var rows []layout.FlexChild
+		rows = append(rows, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+					lbl := material.H6(th, d.selID)
+					lbl.Color = cs.Text
+					return lbl.Layout(gtx)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					btn := material.IconButton(th, d.closeDetail, d.icons.Close, "关闭")
+					return btn.Layout(gtx)
+				}),
+			)
+		}))
+		rows = append(rows, layout.Rigid(layout.Spacer{Height: unit.Dp(desktopui.SpaceM)}.Layout))
+		rows = append(rows, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return d.detailContent(gtx, th, cs)
+		}))
+		return layout.Flex{Axis: layout.Vertical}.Layout(gtx, rows...)
+	})
 }
 
 // collectPage 采集页。
@@ -743,4 +841,77 @@ func reconcileBundlesDesktop(existing, fresh *ir.Bundle) (*ir.Bundle, int, int, 
 		}
 	}
 	return &result, added, 0, 0
+}
+
+// detailContent 按类型渲染选中实体的详情内容（F01）。
+func (d *desktopApp) detailContent(gtx layout.Context, th *material.Theme, cs desktopui.Colors) layout.Dimensions {
+	if d.bundle == nil {
+		return material.Body2(th, "无数据").Layout(gtx)
+	}
+	var lines []string
+	switch d.selKind {
+	case "指令":
+		for _, x := range d.bundle.Instructions {
+			if x.ID == d.selID {
+				lines = append(lines, "激活: "+string(x.Activation), "优先级: "+fmt.Sprintf("%d", x.Priority))
+				if len(x.FilePatterns) > 0 {
+					lines = append(lines, "文件作用域: "+strings.Join(x.FilePatterns, ", "))
+				}
+				if x.Origin != nil {
+					lines = append(lines, "来源: "+x.Origin.Tool+" @ "+x.Origin.Path)
+				}
+				lines = append(lines, "", x.Body)
+			}
+		}
+	case "MCP":
+		for _, x := range d.bundle.MCPServers {
+			if x.ID == d.selID {
+				lines = append(lines, "名称: "+x.Name, "传输: "+x.Transport, "命令: "+x.Command, "URL: "+x.URL)
+				if x.Disabled {
+					lines = append(lines, "状态: 已禁用")
+				}
+				if len(x.Env) > 0 {
+					lines = append(lines, "环境变量: "+fmt.Sprintf("%d 项（secretref 已遮罩）", len(x.Env)))
+				}
+			}
+		}
+	case "技能", "Agent":
+		var packs []ir.PromptPack
+		if d.selKind == "技能" {
+			packs = d.bundle.Skills
+		} else {
+			packs = d.bundle.Agents
+		}
+		for _, x := range packs {
+			if x.ID == d.selID {
+				lines = append(lines, "名称: "+x.Name, "描述: "+x.Description)
+				if len(x.Tools) > 0 {
+					lines = append(lines, "工具: "+strings.Join(x.Tools, ", "))
+				}
+				lines = append(lines, "", x.Body)
+			}
+		}
+	case "Hook":
+		for _, x := range d.bundle.Hooks {
+			if x.ID == d.selID {
+				lines = append(lines, "事件: "+string(x.Event), "类型: "+x.Handler.Type, "命令: "+x.Handler.Command)
+			}
+		}
+	case "设置":
+		for _, x := range d.bundle.Settings {
+			if x.ID == d.selID {
+				lines = append(lines, "键: "+x.Key, "值: "+fmt.Sprintf("%v", x.Value))
+			}
+		}
+	}
+	var rows []layout.FlexChild
+	for _, ln := range lines {
+		ln := ln
+		rows = append(rows, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			lbl := material.Body2(th, ln)
+			lbl.Color = cs.Text
+			return layout.UniformInset(unit.Dp(2)).Layout(gtx, lbl.Layout)
+		}))
+	}
+	return layout.Flex{Axis: layout.Vertical}.Layout(gtx, rows...)
 }

@@ -46,9 +46,10 @@ const (
 	pageSecret
 	pageDrift
 	pageHistory
+	pageActivity
 )
 
-var pageNames = []string{"仪表盘", "实体", "采集", "迁移", "快照", "密钥", "一致性", "历史"}
+var pageNames = []string{"仪表盘", "实体", "采集", "迁移", "快照", "密钥", "一致性", "历史", "活动"}
 
 // toolOptions 采集/迁移可选工具。
 var toolOptions = []string{"claude-code", "codex", "copilot", "zhanlu", "gemini", "claude-desktop", "grokbuild", "cursor", "windsurf", "aider", "cline", "roo", "opencode"}
@@ -457,6 +458,8 @@ func (d *desktopApp) pageLayout(gtx layout.Context, th *material.Theme, titleCol
 		children = append(children, d.driftPage(th, titleColor)...)
 	case pageHistory:
 		children = append(children, d.historyPage(th, titleColor)...)
+	case pageActivity:
+		children = append(children, d.activityPage(th, titleColor)...)
 	}
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
 }
@@ -842,6 +845,7 @@ func (d *desktopApp) doCollect() {
 		}
 	}
 	d.setMsg(fmt.Sprintf("采集完成，新增 %d 条", totalNew), false)
+	d.repo.Audit("collect", "user", "global", fmt.Sprintf("新增 %d 条", totalNew), "ok", nil, 0)
 	d.reload()
 }
 
@@ -895,6 +899,7 @@ func (d *desktopApp) doMigrate() {
 		verb = "预览（未落盘）"
 	}
 	d.setMsg(fmt.Sprintf("迁移到 %s：%s %d 个文件", to, verb, len(res.Written)), false)
+	d.repo.Audit("export", "user", "global", fmt.Sprintf("迁移到 %s，%d 文件", to, len(res.Written)), "ok", nil, len(res.Warnings))
 	d.reload()
 }
 
@@ -916,6 +921,7 @@ func (d *desktopApp) doSnapshotCreate() {
 		return
 	}
 	d.setMsg("已创建快照 "+id, false)
+	d.repo.Audit("snapshot", "user", "global", "创建快照 "+id, "ok", nil, 0)
 	d.reload()
 }
 
@@ -939,6 +945,7 @@ func (d *desktopApp) doSnapshotRestore(id string) {
 		return
 	}
 	d.setMsg("已恢复快照 "+id, false)
+	d.repo.Audit("restore", "user", "global", "恢复快照 "+id, "ok", nil, 0)
 	d.reload()
 }
 
@@ -1723,4 +1730,66 @@ func healthCard(th *material.Theme, cs desktopui.Colors, num, label string, acce
 			)
 		})
 	}
+}
+
+// ---- OPT-C4：活动页（F15 审计日志时间线） ----
+
+// activityPage 活动时间线（logs/audit.jsonl，倒序最新在前）。
+func (d *desktopApp) activityPage(th *material.Theme, titleColor color.NRGBA) []layout.FlexChild {
+	cs := d.ts.Colors
+	var children []layout.FlexChild
+	children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		return material.H6(th, "活动时间线").Layout(gtx)
+	}))
+	children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		lbl := material.Body2(th, "操作审计（collect/export/edit/delete/restore/sync/ai 决策）")
+		lbl.Color = cs.TextSecondary
+		return layout.UniformInset(unit.Dp(desktopui.SpaceS)).Layout(gtx, lbl.Layout)
+	}))
+	children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(desktopui.SpaceM)}.Layout))
+	if d.repo == nil {
+		return children
+	}
+	entries, err := d.repo.ReadAudit(50)
+	if err != nil || len(entries) == 0 {
+		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			lbl := material.Body1(th, "暂无操作记录")
+			lbl.Color = cs.TextSecondary
+			return lbl.Layout(gtx)
+		}))
+		return children
+	}
+	for i := len(entries) - 1; i >= 0; i-- {
+		e := entries[i]
+		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return desktopui.Card(gtx, cs, nil, func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return desktopui.Badge(gtx, cs, e.Op, cs.Accent, func(gtx layout.Context) layout.Dimensions {
+							lbl := material.Caption(th, e.Op)
+							lbl.Color = cs.Surface
+							return lbl.Layout(gtx)
+						})
+					}),
+					layout.Rigid(layout.Spacer{Width: unit.Dp(desktopui.SpaceM)}.Layout),
+					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+						return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								lbl := material.Body2(th, e.Detail)
+								lbl.Color = cs.Text
+								return lbl.Layout(gtx)
+							}),
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								lbl := material.Caption(th, e.Ts.Format("01-02 15:04:05")+" ｜ "+e.Actor+" ｜ "+e.Result)
+								lbl.Color = cs.TextSecondary
+								return lbl.Layout(gtx)
+							}),
+						)
+					}),
+				)
+			})
+		}))
+		children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(desktopui.SpaceS)}.Layout))
+	}
+	return children
 }

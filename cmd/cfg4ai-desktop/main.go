@@ -72,6 +72,7 @@ type desktopApp struct {
 
 	entityList *widget.List
 	snapWidget *widget.List
+	win        *app.Window // 用于 goroutine 完成后触发重绘
 }
 
 type snapItem struct {
@@ -164,6 +165,7 @@ func (d *desktopApp) reload() {
 
 // loop 主事件循环 + 布局。
 func (d *desktopApp) loop(w *app.Window) error {
+	d.win = w // 持有窗口引用供异步重绘
 	th := material.NewTheme()
 	var ops op.Ops
 	titleColor := color.NRGBA{R: 0x1a, G: 0x5f, B: 0xb4, A: 0xff}
@@ -476,7 +478,7 @@ func (d *desktopApp) enumLayout(gtx layout.Context, th *material.Theme, e *widge
 // ---- 操作（goroutine 异步，避免阻塞 UI） ----
 
 func (d *desktopApp) doCollect() {
-	defer func() { d.loading = false }()
+	defer func() { d.loading = false; if d.win != nil { d.win.Invalidate() } }()
 	if d.repo == nil {
 		d.setMsg("仓库未就绪", true)
 		return
@@ -510,7 +512,7 @@ func (d *desktopApp) doCollect() {
 }
 
 func (d *desktopApp) doMigrate() {
-	defer func() { d.loading = false }()
+	defer func() { d.loading = false; if d.win != nil { d.win.Invalidate() } }()
 	if d.repo == nil {
 		d.setMsg("仓库未就绪", true)
 		return
@@ -558,7 +560,7 @@ func (d *desktopApp) doMigrate() {
 }
 
 func (d *desktopApp) doSnapshotCreate() {
-	defer func() { d.loading = false }()
+	defer func() { d.loading = false; if d.win != nil { d.win.Invalidate() } }()
 	if d.repo == nil {
 		d.setMsg("仓库未就绪", true)
 		return
@@ -574,7 +576,7 @@ func (d *desktopApp) doSnapshotCreate() {
 }
 
 func (d *desktopApp) doSnapshotRestore(id string) {
-	defer func() { d.loading = false }()
+	defer func() { d.loading = false; if d.win != nil { d.win.Invalidate() } }()
 	if d.repo == nil {
 		d.setMsg("仓库未就绪", true)
 		return

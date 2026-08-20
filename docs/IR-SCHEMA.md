@@ -240,6 +240,22 @@ value: secretref://cfg4ai/<profile>/<entity-id>/<field>   # key 字符集 [a-zA-
 - 单条上限 2KB；实体删除/改名/prune 级联清理。
 - **回采保护**（§1.1）：导出物中的占位符/空值再采集时不覆盖已有 secretref。
 
+
+## 4.5 侧车文件 annotations.yaml（治理元数据）
+
+每个 profile 可含 `annotations.yaml` 侧车文件，承载不进实体的治理元数据（治理线，见 docs/OPTIMIZATION-PLAN.md F05/F18）：
+
+```yaml
+disabled: [skill.legacy-review, hook.old-guard]   # 泛化禁用清单（merge 后、Map 前过滤剔除）
+labels: { mcp.filesystem: [核心, 只读] }          # 自定义标签（组织维度）
+favorite: [instruction.coding-style]            # 收藏
+pinned: [setting.codex.model]                   # 钉住：collect 回流不更新该 id（brew pin 语义）
+```
+
+- **物化语义**：引擎 merge 后、Map 前读取 annotations，剔除 `disabled` 条目；`pinned` 在 collect reconcile 时跳过该 id 的更新；labels/favorite 仅展示层使用。
+- **同步**：annotations.yaml 位于 `profiles/` 内，天然落入 sync 白名单。
+- **变更记录**：S2（OPTIMIZATION-PLAN §2.4 规格变更候选，2026-08-20 落规格）。
+
 ## 4. Bundle（迁移管线内存模型）
 
 ```go

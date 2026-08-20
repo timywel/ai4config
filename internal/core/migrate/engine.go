@@ -76,6 +76,9 @@ func (e *Engine) Export(ctx context.Context, req ExportRequest) (*ExportResult, 
 	// [2] Merge 五层物化（含墓碑遮蔽）
 	merged := profile.MergeBundles(layers...)
 
+	// [2.5] 剔除 annotations.yaml 禁用清单条目（IR-SCHEMA §4.5，merge 后 Map 前）
+	merged = e.filterDisabled(merged)
+
 	// [3] 空集保护（红队 T-01）：merged 为空且目标已有文件 → 拒绝（--force 也需确认，CLI 层处理）
 	if isEmptyBundle(merged) && !req.Force {
 		return nil, fmt.Errorf("migrate: 合并后有效配置为空（可能是误删/盘掉线），已拒绝导出；确认无误请加 --force")
@@ -218,4 +221,68 @@ func isEmptyBundle(b *ir.Bundle) bool {
 
 func isNotExist(err error) bool {
 	return err != nil && (osIsNotExist(err))
+}
+
+// filterDisabled 剔除 annotations.yaml 禁用清单条目（IR-SCHEMA §4.5，merge 后 Map 前）。
+func (e *Engine) filterDisabled(b *ir.Bundle) *ir.Bundle {
+	ann, err := profile.LoadAnnotations(e.Repo.Path(store.DirProfiles, "global"))
+	if err != nil || ann == nil || len(ann.Disabled) == 0 {
+		return b
+	}
+	out := *b
+	out.Instructions = filterDisabledInstructions(b.Instructions, ann)
+	out.MCPServers = filterDisabledMCP(b.MCPServers, ann)
+	out.Skills = filterDisabledPacks(b.Skills, ann)
+	out.Agents = filterDisabledPacks(b.Agents, ann)
+	out.Commands = filterDisabledPacks(b.Commands, ann)
+	out.Workflows = filterDisabledPacks(b.Workflows, ann)
+	out.Hooks = filterDisabledHooks(b.Hooks, ann)
+	out.Settings = filterDisabledSettings(b.Settings, ann)
+	return &out
+}
+
+func filterDisabledInstructions(l []ir.Instruction, ann *profile.Annotations) []ir.Instruction {
+	var out []ir.Instruction
+	for _, x := range l {
+		if !ann.IsDisabled(x.ID) {
+			out = append(out, x)
+		}
+	}
+	return out
+}
+func filterDisabledMCP(l []ir.MCPServer, ann *profile.Annotations) []ir.MCPServer {
+	var out []ir.MCPServer
+	for _, x := range l {
+		if !ann.IsDisabled(x.ID) {
+			out = append(out, x)
+		}
+	}
+	return out
+}
+func filterDisabledPacks(l []ir.PromptPack, ann *profile.Annotations) []ir.PromptPack {
+	var out []ir.PromptPack
+	for _, x := range l {
+		if !ann.IsDisabled(x.ID) {
+			out = append(out, x)
+		}
+	}
+	return out
+}
+func filterDisabledHooks(l []ir.Hook, ann *profile.Annotations) []ir.Hook {
+	var out []ir.Hook
+	for _, x := range l {
+		if !ann.IsDisabled(x.ID) {
+			out = append(out, x)
+		}
+	}
+	return out
+}
+func filterDisabledSettings(l []ir.SettingEntry, ann *profile.Annotations) []ir.SettingEntry {
+	var out []ir.SettingEntry
+	for _, x := range l {
+		if !ann.IsDisabled(x.ID) {
+			out = append(out, x)
+		}
+	}
+	return out
 }

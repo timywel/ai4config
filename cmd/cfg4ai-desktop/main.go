@@ -48,9 +48,10 @@ const (
 	pageHistory
 	pageActivity
 	pageDiscover
+	pageGraph
 )
 
-var pageNames = []string{"仪表盘", "实体", "采集", "迁移", "快照", "密钥", "一致性", "历史", "活动", "发现"}
+var pageNames = []string{"仪表盘", "实体", "采集", "迁移", "快照", "密钥", "一致性", "历史", "活动", "发现", "关系"}
 
 // toolOptions 采集/迁移可选工具。
 var toolOptions = []string{"claude-code", "codex", "copilot", "zhanlu", "gemini", "claude-desktop", "grokbuild", "cursor", "windsurf", "aider", "cline", "roo", "opencode"}
@@ -463,6 +464,8 @@ func (d *desktopApp) pageLayout(gtx layout.Context, th *material.Theme, titleCol
 		children = append(children, d.activityPage(th, titleColor)...)
 	case pageDiscover:
 		children = append(children, d.discoverPage(th, titleColor)...)
+	case pageGraph:
+		children = append(children, d.graphPage(th, titleColor)...)
 	}
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
 }
@@ -1927,6 +1930,119 @@ func (d *desktopApp) discoverPage(th *material.Theme, titleColor color.NRGBA) []
 						lbl := material.Caption(th, "未纳管："+strings.Join(it.unmanaged, "、"))
 						lbl.Color = cs.TextSecondary
 						return layout.UniformInset(unit.Dp(desktopui.SpaceS)).Layout(gtx, lbl.Layout)
+					}),
+				)
+			})
+		}))
+		children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(desktopui.SpaceS)}.Layout))
+	}
+	return children
+}
+
+// ---- OPT-D2：关系页（依赖关系 + 断链检测，F10） ----
+
+// graphEdge 一条依赖边。
+type graphEdge struct {
+	from   string // 引用方 id
+	to     string // 被引用 id
+	kind   string // references（skill→mcp）/ imports（instruction→文件）
+	broken bool   // 断链（被引用 id 不存在）
+}
+
+// loadGraph 构建依赖边（skill/agent 的 mcp_servers 引用 + instruction 的 imports）。
+func (d *desktopApp) loadGraph() []graphEdge {
+	var out []graphEdge
+	if d.bundle == nil {
+		return out
+	}
+	// 已知的 mcp id 集合
+	mcpIDs := map[string]bool{}
+	for _, m := range d.bundle.MCPServers {
+		mcpIDs[m.ID] = true
+		mcpIDs["mcp."+m.Name] = true
+	}
+	// skill/agent 的 mcp_servers 引用
+	check := func(fromID string, refs []string) {
+		for _, r := range refs {
+			broken := !mcpIDs[r] && !mcpIDs["mcp."+r]
+			out = append(out, graphEdge{from: fromID, to: r, kind: "references", broken: broken})
+		}
+	}
+	for _, s := range d.bundle.Skills {
+		check(s.ID, s.MCPServers)
+	}
+	for _, a := range d.bundle.Agents {
+		check(a.ID, a.MCPServers)
+	}
+	// instruction 的 imports（引用文件路径）
+	for _, inst := range d.bundle.Instructions {
+		for _, imp := range inst.Imports {
+			out = append(out, graphEdge{from: inst.ID, to: imp.Path, kind: "imports", broken: !imp.Resolved})
+		}
+	}
+	return out
+}
+
+// graphPage 关系页（F10）。
+func (d *desktopApp) graphPage(th *material.Theme, titleColor color.NRGBA) []layout.FlexChild {
+	cs := d.ts.Colors
+	var children []layout.FlexChild
+	children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		return material.H6(th, "关系（依赖边 + 断链检测）").Layout(gtx)
+	}))
+	children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		lbl := material.Body2(th, "skill/agent 引用的 MCP、instruction 的 @import 链；断链红显")
+		lbl.Color = cs.TextSecondary
+		return layout.UniformInset(unit.Dp(desktopui.SpaceS)).Layout(gtx, lbl.Layout)
+	}))
+	children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(desktopui.SpaceM)}.Layout))
+
+	edges := d.loadGraph()
+	if len(edges) == 0 {
+		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			lbl := material.Body1(th, "无依赖边（skill 未引用 MCP、instruction 无 @import）")
+			lbl.Color = cs.TextSecondary
+			return lbl.Layout(gtx)
+		}))
+		return children
+	}
+	broken := 0
+	for _, e := range edges {
+		if e.broken {
+			broken++
+		}
+	}
+	children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		lbl := material.Body2(th, fmt.Sprintf("共 %d 条依赖边，%d 条断链", len(edges), broken))
+		lbl.Color = cs.Text
+		lbl.Font.Weight = font.Medium
+		return lbl.Layout(gtx)
+	}))
+	children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(desktopui.SpaceS)}.Layout))
+	for _, e := range edges {
+		e := e
+		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			edgeColor := cs.TextSecondary
+			if e.broken {
+				edgeColor = cs.Danger
+			}
+			return desktopui.Card(gtx, cs, nil, func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return desktopui.Badge(gtx, cs, e.kind, cs.Accent, func(gtx layout.Context) layout.Dimensions {
+							lbl := material.Caption(th, e.kind)
+							lbl.Color = cs.Surface
+							return lbl.Layout(gtx)
+						})
+					}),
+					layout.Rigid(layout.Spacer{Width: unit.Dp(desktopui.SpaceM)}.Layout),
+					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+						lbl := material.Body2(th, e.from+"  →  "+e.to)
+						lbl.Color = edgeColor
+						if e.broken {
+							lbl.Font.Weight = font.Bold
+						}
+						return lbl.Layout(gtx)
 					}),
 				)
 			})

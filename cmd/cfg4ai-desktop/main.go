@@ -50,6 +50,9 @@ var pageNames = []string{"仪表盘", "实体", "采集", "迁移", "快照"}
 // toolOptions 采集/迁移可选工具。
 var toolOptions = []string{"claude-code", "codex", "copilot", "zhanlu", "gemini", "claude-desktop", "grokbuild", "cursor", "windsurf", "aider", "cline", "roo", "opencode"}
 
+// kindOptions 实体类型过滤 chip 选项。
+var kindOptions = []string{"全部", "指令", "MCP", "技能", "Agent", "Hook", "设置"}
+
 type desktopApp struct {
 	repo *store.Repo
 
@@ -89,6 +92,10 @@ type desktopApp struct {
 	selID       string                    // 选中实体 id
 	detailBtns  map[int]*widget.Clickable // 实体行点击
 	closeDetail *widget.Clickable         // 关闭详情
+
+	searchEd   *widget.Editor       // 搜索框（F02）
+	kindFilter *desktopui.ChipGroup // 类型过滤 chip（F02）
+	filtered   []entityItem         // 过滤后的实体
 }
 
 type snapItem struct {
@@ -120,6 +127,8 @@ func newDesktopApp() *desktopApp {
 	d.icons = desktopui.MustIcons()
 	d.detailBtns = map[int]*widget.Clickable{}
 	d.closeDetail = new(widget.Clickable)
+	d.searchEd = &widget.Editor{}
+	d.kindFilter = desktopui.NewChipGroup("全部")
 	d.migrateFrom.Value = "claude-code"
 	d.migrateTo.Value = "codex"
 
@@ -428,9 +437,30 @@ func statCard(th *material.Theme, num, label string) layout.Widget {
 // entitiesPage 实体列表（可点行）+ 详情面板（按类型渲染）。
 func (d *desktopApp) entitiesPage(th *material.Theme) []layout.FlexChild {
 	cs := d.ts.Colors
+	filtered := d.filterItems()
 	var children []layout.FlexChild
+	// 顶部：搜索框 + 类型过滤 chip
 	children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-		return material.H6(th, fmt.Sprintf("已采集实体（%d）", len(d.items))).Layout(gtx)
+		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return d.icons.Search.Layout(gtx, cs.TextSecondary)
+					}),
+					layout.Rigid(layout.Spacer{Width: unit.Dp(desktopui.SpaceS)}.Layout),
+					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+						return material.Editor(th, d.searchEd, "搜索 id / 备注 / 类型…").Layout(gtx)
+					}),
+				)
+			}),
+			layout.Rigid(layout.Spacer{Height: unit.Dp(desktopui.SpaceS)}.Layout),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return d.kindFilter.Layout(gtx, th, cs, kindOptions)
+			}),
+		)
+	}))
+	children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		return material.H6(th, fmt.Sprintf("实体（%d/%d）", len(filtered), len(d.items))).Layout(gtx)
 	}))
 	children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout))
 	// 详情面板（有选中时）
@@ -914,4 +944,21 @@ func (d *desktopApp) detailContent(gtx layout.Context, th *material.Theme, cs de
 		}))
 	}
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx, rows...)
+}
+
+// filterItems 按类型 chip + 搜索词过滤实体（F02）。
+func (d *desktopApp) filterItems() []entityItem {
+	var out []entityItem
+	kindSel := d.kindFilter.Value
+	q := strings.ToLower(strings.TrimSpace(d.searchEd.Text()))
+	for _, it := range d.items {
+		if kindSel != "" && kindSel != "全部" && it.kind != kindSel {
+			continue
+		}
+		if q != "" && !strings.Contains(strings.ToLower(it.id+" "+it.note+" "+it.kind), q) {
+			continue
+		}
+		out = append(out, it)
+	}
+	return out
 }

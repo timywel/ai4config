@@ -45,9 +45,10 @@ const (
 	pageSnapshot
 	pageSecret
 	pageDrift
+	pageHistory
 )
 
-var pageNames = []string{"仪表盘", "实体", "采集", "迁移", "快照", "密钥", "一致性"}
+var pageNames = []string{"仪表盘", "实体", "采集", "迁移", "快照", "密钥", "一致性", "历史"}
 
 // toolOptions 采集/迁移可选工具。
 var toolOptions = []string{"claude-code", "codex", "copilot", "zhanlu", "gemini", "claude-desktop", "grokbuild", "cursor", "windsurf", "aider", "cline", "roo", "opencode"}
@@ -454,6 +455,8 @@ func (d *desktopApp) pageLayout(gtx layout.Context, th *material.Theme, titleCol
 		children = append(children, d.secretPage(th, titleColor)...)
 	case pageDrift:
 		children = append(children, d.driftPage(th, titleColor)...)
+	case pageHistory:
+		children = append(children, d.historyPage(th, titleColor)...)
 	}
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
 }
@@ -712,7 +715,6 @@ func (d *desktopApp) snapshotPage(th *material.Theme, titleColor color.NRGBA) []
 		layout.Rigid(layout.Spacer{Height: unit.Dp(12)}.Layout),
 	)
 	for _, s := range d.snapList {
-		s := s
 		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.UniformInset(unit.Dp(4)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
@@ -1558,6 +1560,70 @@ func (d *desktopApp) driftPage(th *material.Theme, titleColor color.NRGBA) []lay
 				)
 			})
 		}))
+	}
+	return children
+}
+
+// ---- OPT-C2：历史页（F07 历史时间线） ----
+
+// historyPage 历史时间线：快照节点 + 选中实体的版本链。
+func (d *desktopApp) historyPage(th *material.Theme, titleColor color.NRGBA) []layout.FlexChild {
+	cs := d.ts.Colors
+	var children []layout.FlexChild
+	children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		return material.H6(th, "历史时间线").Layout(gtx)
+	}))
+	children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		lbl := material.Body2(th, "快照为整库时间点；恢复会反向快照现状")
+		lbl.Color = cs.TextSecondary
+		return layout.UniformInset(unit.Dp(desktopui.SpaceS)).Layout(gtx, lbl.Layout)
+	}))
+	children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(desktopui.SpaceM)}.Layout))
+
+	if d.repo == nil {
+		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return material.Body1(th, "仓库未就绪").Layout(gtx)
+		}))
+		return children
+	}
+	snaps, err := d.repo.ListSnapshots()
+	if err != nil || len(snaps) == 0 {
+		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			lbl := material.Body1(th, "无快照——到「快照」页创建")
+			lbl.Color = cs.TextSecondary
+			return lbl.Layout(gtx)
+		}))
+		return children
+	}
+	// 时间轴（倒序：最新在前）
+	for i := len(snaps) - 1; i >= 0; i-- {
+		s := snaps[i]
+		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return desktopui.Card(gtx, cs, nil, func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return d.icons.Snapshot.Layout(gtx, cs.Accent)
+					}),
+					layout.Rigid(layout.Spacer{Width: unit.Dp(desktopui.SpaceM)}.Layout),
+					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+						return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								lbl := material.Body2(th, s.ID+"  "+s.Note)
+								lbl.Color = cs.Text
+								lbl.Font.Weight = font.Medium
+								return lbl.Layout(gtx)
+							}),
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								lbl := material.Caption(th, s.CreatedAt.Format("2006-01-02 15:04:05")+fmt.Sprintf(" ｜ %d 文件", len(s.Files)))
+								lbl.Color = cs.TextSecondary
+								return lbl.Layout(gtx)
+							}),
+						)
+					}),
+				)
+			})
+		}))
+		children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(desktopui.SpaceS)}.Layout))
 	}
 	return children
 }

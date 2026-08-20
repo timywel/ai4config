@@ -43,9 +43,10 @@ const (
 	pageCollect
 	pageMigrate
 	pageSnapshot
+	pageSecret
 )
 
-var pageNames = []string{"仪表盘", "实体", "采集", "迁移", "快照"}
+var pageNames = []string{"仪表盘", "实体", "采集", "迁移", "快照", "密钥"}
 
 // toolOptions 采集/迁移可选工具。
 var toolOptions = []string{"claude-code", "codex", "copilot", "zhanlu", "gemini", "claude-desktop", "grokbuild", "cursor", "windsurf", "aider", "cline", "roo", "opencode"}
@@ -448,6 +449,8 @@ func (d *desktopApp) pageLayout(gtx layout.Context, th *material.Theme, titleCol
 		children = append(children, d.migratePage(th, titleColor)...)
 	case pageSnapshot:
 		children = append(children, d.snapshotPage(th, titleColor)...)
+	case pageSecret:
+		children = append(children, d.secretPage(th, titleColor)...)
 	}
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
 }
@@ -1316,4 +1319,104 @@ func clearTombstoneB2(b *ir.Bundle, id string) {
 			b.Settings[i].Tombstone = false
 		}
 	}
+}
+
+// ---- OPT-B4：密钥页（F08 secret 管理界面） ----
+
+// secretItem 一个 secretref 条目。
+type secretItem struct {
+	ref     string
+	entity  string
+	backend string
+}
+
+// scanSecretRefs 扫 bundle 找全部 secretref（MCP env/headers + settings 值）。
+func (d *desktopApp) scanSecretRefs() []secretItem {
+	var out []secretItem
+	if d.bundle == nil {
+		return out
+	}
+	scan := func(entity, field, v string) {
+		if secrets.IsSecretRef(v) {
+			out = append(out, secretItem{ref: v, entity: entity, backend: backendNameFor(d)})
+		}
+	}
+	for _, m := range d.bundle.MCPServers {
+		for k, v := range m.Env {
+			scan(m.ID, "env."+k, v)
+		}
+		for k, v := range m.Headers {
+			scan(m.ID, "headers."+k, v)
+		}
+	}
+	for _, s := range d.bundle.Settings {
+		if v, ok := s.Value.(string); ok {
+			scan(s.ID, s.Key, v)
+		}
+	}
+	return out
+}
+
+// backendNameFor 当前 secret 后端名（徽标显示）。
+func backendNameFor(d *desktopApp) string {
+	if d.repo == nil {
+		return "none"
+	}
+	b, err := secrets.ResolveBackend("", d.repo.Root, nil)
+	if err != nil {
+		return "none"
+	}
+	return string(b.Type())
+}
+
+// secretPage 密钥页：secretref 清单（F08）。
+func (d *desktopApp) secretPage(th *material.Theme, titleColor color.NRGBA) []layout.FlexChild {
+	cs := d.ts.Colors
+	items := d.scanSecretRefs()
+	var children []layout.FlexChild
+	children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		return material.H6(th, "密钥（secretref 清单）").Layout(gtx)
+	}))
+	children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		lbl := material.Body2(th, "当前后端："+backendNameFor(d)+"；secret 明文永不回显，设值经后端写入")
+		lbl.Color = cs.TextSecondary
+		return layout.UniformInset(unit.Dp(desktopui.SpaceS)).Layout(gtx, lbl.Layout)
+	}))
+	children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(desktopui.SpaceM)}.Layout))
+	if len(items) == 0 {
+		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			lbl := material.Body1(th, "无 secretref（采集时结构化字段的敏感值会自动抽取为占位符）")
+			lbl.Color = cs.TextSecondary
+			return lbl.Layout(gtx)
+		}))
+	}
+	for _, it := range items {
+		it := it
+		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return desktopui.Card(gtx, cs, nil, func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								return d.icons.Key.Layout(gtx, cs.Accent)
+							}),
+							layout.Rigid(layout.Spacer{Width: unit.Dp(desktopui.SpaceM)}.Layout),
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								lbl := material.Body2(th, it.ref)
+								lbl.Color = cs.Text
+								lbl.Font.Weight = font.Medium
+								return lbl.Layout(gtx)
+							}),
+						)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						lbl := material.Caption(th, "所属："+it.entity+" ｜ 后端："+it.backend)
+						lbl.Color = cs.TextSecondary
+						return lbl.Layout(gtx)
+					}),
+				)
+			})
+		}))
+	}
+	return children
 }

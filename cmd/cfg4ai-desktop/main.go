@@ -44,9 +44,10 @@ const (
 	pageMigrate
 	pageSnapshot
 	pageSecret
+	pageDrift
 )
 
-var pageNames = []string{"仪表盘", "实体", "采集", "迁移", "快照", "密钥"}
+var pageNames = []string{"仪表盘", "实体", "采集", "迁移", "快照", "密钥", "一致性"}
 
 // toolOptions 采集/迁移可选工具。
 var toolOptions = []string{"claude-code", "codex", "copilot", "zhanlu", "gemini", "claude-desktop", "grokbuild", "cursor", "windsurf", "aider", "cline", "roo", "opencode"}
@@ -451,6 +452,8 @@ func (d *desktopApp) pageLayout(gtx layout.Context, th *material.Theme, titleCol
 		children = append(children, d.snapshotPage(th, titleColor)...)
 	case pageSecret:
 		children = append(children, d.secretPage(th, titleColor)...)
+	case pageDrift:
+		children = append(children, d.driftPage(th, titleColor)...)
 	}
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
 }
@@ -1413,6 +1416,144 @@ func (d *desktopApp) secretPage(th *material.Theme, titleColor color.NRGBA) []la
 						lbl := material.Caption(th, "所属："+it.entity+" ｜ 后端："+it.backend)
 						lbl.Color = cs.TextSecondary
 						return lbl.Layout(gtx)
+					}),
+				)
+			})
+		}))
+	}
+	return children
+}
+
+// ---- OPT-C1：一致性页（漂移检测与冲突处置，F06） ----
+
+type driftItem struct {
+	tool   string
+	name   string
+	status string // 一致 / 仅SSOT / 仅磁盘 / 双方改
+	detail string
+}
+
+// loadDrift 检测各工具 SSOT vs 磁盘漂移（MCP 对比）。
+func (d *desktopApp) loadDrift() []driftItem {
+	var out []driftItem
+	if d.repo == nil {
+		return out
+	}
+	sb, err := profile.Load(d.repo.Path(store.DirProfiles, "global"), ir.ScopeGlobal)
+	if err != nil {
+		return out
+	}
+	for _, a := range adapters.List() {
+		tool := string(a.Meta().ID)
+		// SSOT 中该工具的 MCP
+		ssot := map[string]ir.MCPServer{}
+		for _, m := range sb.Bundle.MCPServers {
+			if m.Origin != nil && m.Origin.Tool == tool {
+				ssot[m.Name] = m
+			}
+		}
+		// 磁盘现状
+		disk := map[string]ir.MCPServer{}
+		locs, _ := a.Detect(context.Background())
+		for _, loc := range locs {
+			b, err := a.Import(context.Background(), loc)
+			if err != nil {
+				continue
+			}
+			for _, m := range b.MCPServers {
+				disk[m.Name] = m
+			}
+		}
+		// 对比
+		for name, s := range ssot {
+			dsk, ok := disk[name]
+			if !ok {
+				out = append(out, driftItem{tool, name, "仅SSOT", "磁盘无此 server"})
+				continue
+			}
+			if s.Command != dsk.Command || s.URL != dsk.URL {
+				out = append(out, driftItem{tool, name, "双方改", "SSOT 与磁盘字段不一致"})
+			} else {
+				out = append(out, driftItem{tool, name, "一致", ""})
+			}
+		}
+		for name := range disk {
+			if _, ok := ssot[name]; !ok {
+				out = append(out, driftItem{tool, name, "仅磁盘", "SSOT 未采集"})
+			}
+		}
+	}
+	return out
+}
+
+// driftPage 一致性页（F06）。
+func (d *desktopApp) driftPage(th *material.Theme, titleColor color.NRGBA) []layout.FlexChild {
+	cs := d.ts.Colors
+	items := d.loadDrift()
+	var children []layout.FlexChild
+	children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		return material.H6(th, "一致性（SSOT vs 磁盘）").Layout(gtx)
+	}))
+	children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		lbl := material.Body2(th, "检测各工具配置与 SSOT 的漂移；漂移项可处置")
+		lbl.Color = cs.TextSecondary
+		return layout.UniformInset(unit.Dp(desktopui.SpaceS)).Layout(gtx, lbl.Layout)
+	}))
+	children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(desktopui.SpaceM)}.Layout))
+
+	driftCount := 0
+	for _, it := range items {
+		if it.status != "一致" {
+			driftCount++
+		}
+	}
+	children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		lbl := material.Body2(th, fmt.Sprintf("共 %d 项配置，%d 项漂移", len(items), driftCount))
+		lbl.Color = cs.Text
+		lbl.Font.Weight = font.Medium
+		return lbl.Layout(gtx)
+	}))
+	children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(desktopui.SpaceS)}.Layout))
+
+	for _, it := range items {
+		it := it
+		if it.status == "一致" {
+			continue // 只显示漂移项
+		}
+		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return desktopui.Card(gtx, cs, nil, func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						var badgeColor color.NRGBA
+						switch it.status {
+						case "仅SSOT":
+							badgeColor = cs.Accent
+						case "仅磁盘":
+							badgeColor = cs.Success
+						default:
+							badgeColor = cs.Danger
+						}
+						return desktopui.Badge(gtx, cs, it.status, badgeColor, func(gtx layout.Context) layout.Dimensions {
+							lbl := material.Caption(th, it.status)
+							lbl.Color = cs.Surface
+							return lbl.Layout(gtx)
+						})
+					}),
+					layout.Rigid(layout.Spacer{Width: unit.Dp(desktopui.SpaceM)}.Layout),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								lbl := material.Body2(th, it.tool+" / "+it.name)
+								lbl.Color = cs.Text
+								lbl.Font.Weight = font.Medium
+								return lbl.Layout(gtx)
+							}),
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								lbl := material.Caption(th, it.detail)
+								lbl.Color = cs.TextSecondary
+								return lbl.Layout(gtx)
+							}),
+						)
 					}),
 				)
 			})

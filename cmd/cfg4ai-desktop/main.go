@@ -96,6 +96,12 @@ type desktopApp struct {
 	searchEd   *widget.Editor       // 搜索框（F02）
 	kindFilter *desktopui.ChipGroup // 类型过滤 chip（F02）
 	filtered   []entityItem         // 过滤后的实体
+
+	editing    bool              // 编辑态
+	editBody   *widget.Editor    // 正文编辑
+	editBtn    *widget.Clickable // 进入编辑
+	editSave   *widget.Clickable // 保存
+	editCancel *widget.Clickable // 取消
 }
 
 type snapItem struct {
@@ -129,6 +135,10 @@ func newDesktopApp() *desktopApp {
 	d.closeDetail = new(widget.Clickable)
 	d.searchEd = &widget.Editor{}
 	d.kindFilter = desktopui.NewChipGroup("全部")
+	d.editBody = &widget.Editor{}
+	d.editBtn = new(widget.Clickable)
+	d.editSave = new(widget.Clickable)
+	d.editCancel = new(widget.Clickable)
 	d.migrateFrom.Value = "claude-code"
 	d.migrateTo.Value = "codex"
 
@@ -226,6 +236,19 @@ func (d *desktopApp) loop(w *app.Window) error {
 			}
 			if d.closeDetail.Clicked(gtx) {
 				d.selID = ""
+				d.editing = false
+			}
+			// 编辑
+			if d.editBtn.Clicked(gtx) && d.selID != "" && !d.editing {
+				d.editing = true
+				d.editBody.SetText(d.currentBody())
+			}
+			if d.editSave.Clicked(gtx) && d.editing && !d.loading {
+				d.loading = true
+				go d.doSaveEdit()
+			}
+			if d.editCancel.Clicked(gtx) && d.editing {
+				d.editing = false
 			}
 			// 采集
 			if d.collectBtn.Clicked(gtx) && !d.loading {
@@ -547,6 +570,13 @@ func (d *desktopApp) detailPanel(gtx layout.Context, th *material.Theme, cs desk
 					return lbl.Layout(gtx)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					if d.editing {
+						return layout.Dimensions{}
+					}
+					btn := material.IconButton(th, d.editBtn, d.icons.Edit, "编辑")
+					return btn.Layout(gtx)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					btn := material.IconButton(th, d.closeDetail, d.icons.Close, "关闭")
 					return btn.Layout(gtx)
 				}),
@@ -554,6 +584,9 @@ func (d *desktopApp) detailPanel(gtx layout.Context, th *material.Theme, cs desk
 		}))
 		rows = append(rows, layout.Rigid(layout.Spacer{Height: unit.Dp(desktopui.SpaceM)}.Layout))
 		rows = append(rows, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			if d.editing {
+				return d.editArea(gtx, th, cs)
+			}
 			return d.detailContent(gtx, th, cs)
 		}))
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx, rows...)
@@ -961,4 +994,126 @@ func (d *desktopApp) filterItems() []entityItem {
 		out = append(out, it)
 	}
 	return out
+}
+
+// editArea 编辑态：正文编辑 + 保存/取消（F03）。
+func (d *desktopApp) editArea(gtx layout.Context, th *material.Theme, cs desktopui.Colors) layout.Dimensions {
+	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			lbl := material.Body2(th, "编辑正文（"+d.selID+"）")
+			lbl.Color = cs.TextSecondary
+			return lbl.Layout(gtx)
+		}),
+		layout.Rigid(layout.Spacer{Height: unit.Dp(desktopui.SpaceS)}.Layout),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return desktopui.Card(gtx, cs, nil, func(gtx layout.Context) layout.Dimensions {
+				return material.Editor(th, d.editBody, "正文内容...").Layout(gtx)
+			})
+		}),
+		layout.Rigid(layout.Spacer{Height: unit.Dp(desktopui.SpaceM)}.Layout),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					btn := material.Button(th, d.editSave, "保存")
+					btn.Background = cs.Accent
+					return btn.Layout(gtx)
+				}),
+				layout.Rigid(layout.Spacer{Width: unit.Dp(desktopui.SpaceM)}.Layout),
+				layout.Rigid(material.Button(th, d.editCancel, "取消").Layout),
+			)
+		}),
+	)
+}
+
+// currentBody 取选中实体的当前正文。
+func (d *desktopApp) currentBody() string {
+	if d.bundle == nil {
+		return ""
+	}
+	switch d.selKind {
+	case "指令":
+		for _, x := range d.bundle.Instructions {
+			if x.ID == d.selID {
+				return x.Body
+			}
+		}
+	case "技能":
+		for _, x := range d.bundle.Skills {
+			if x.ID == d.selID {
+				return x.Body
+			}
+		}
+	case "Agent":
+		for _, x := range d.bundle.Agents {
+			if x.ID == d.selID {
+				return x.Body
+			}
+		}
+	}
+	return ""
+}
+
+// doSaveEdit 保存编辑（写回 profile + 校验 + 审计）。
+func (d *desktopApp) doSaveEdit() {
+	defer func() {
+		d.loading = false
+		if d.win != nil {
+			d.win.Invalidate()
+		}
+	}()
+	if d.repo == nil {
+		d.setMsg("仓库未就绪", true)
+		return
+	}
+	newBody := d.editBody.Text()
+	if d.bundle == nil {
+		d.setMsg("无数据", true)
+		return
+	}
+	// 写回对应实体的 Body
+	updated := false
+	switch d.selKind {
+	case "指令":
+		for i := range d.bundle.Instructions {
+			if d.bundle.Instructions[i].ID == d.selID {
+				d.bundle.Instructions[i].Body = newBody
+				updated = true
+			}
+		}
+	case "技能":
+		for i := range d.bundle.Skills {
+			if d.bundle.Skills[i].ID == d.selID {
+				d.bundle.Skills[i].Body = newBody
+				updated = true
+			}
+		}
+	case "Agent":
+		for i := range d.bundle.Agents {
+			if d.bundle.Agents[i].ID == d.selID {
+				d.bundle.Agents[i].Body = newBody
+				updated = true
+			}
+		}
+	}
+	if !updated {
+		d.setMsg("未找到实体", true)
+		return
+	}
+	// 校验（IR-SCHEMA 12 条）
+	issues := ir.Validate(d.bundle, ir.ValidateOptions{CurrentIRVersion: profile.CurrentIRVersion})
+	for _, is := range issues {
+		if is.Level == ir.SeverityError {
+			d.setMsg("校验失败: "+is.Message, true)
+			return
+		}
+	}
+	// 写回 profile（global）
+	m := &profile.Manifest{IRVersion: profile.CurrentIRVersion, Profile: profile.Meta{Name: "global", Kind: "global"}}
+	if err := profile.Save(d.repo.Path(store.DirProfiles, "global"), d.bundle, m); err != nil {
+		d.setMsg("写回失败: "+err.Error(), true)
+		return
+	}
+	d.editing = false
+	d.setMsg("已保存 "+d.selID, false)
+	d.reload()
 }

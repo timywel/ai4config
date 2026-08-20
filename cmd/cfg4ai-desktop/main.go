@@ -93,6 +93,16 @@ type desktopApp struct {
 	detailBtns  map[int]*widget.Clickable // 实体行点击
 	closeDetail *widget.Clickable         // 关闭详情
 
+	newBtn      *widget.Clickable    // 新建入口
+	newType     *desktopui.ChipGroup // 新建类型
+	newID       *widget.Editor       // 新建 id
+	newCreate   *widget.Clickable    // 确认新建
+	deleteBtn   *widget.Clickable    // 删除（墓碑）
+	restoreBtn  *widget.Clickable    // 恢复（去墓碑）
+	showRecycle bool                 // 回收站视图
+	recycleBtn  *widget.Clickable    // 回收站切换
+	showNew     bool                 // 新建表单显隐
+
 	searchEd   *widget.Editor       // 搜索框（F02）
 	kindFilter *desktopui.ChipGroup // 类型过滤 chip（F02）
 	filtered   []entityItem         // 过滤后的实体
@@ -133,6 +143,13 @@ func newDesktopApp() *desktopApp {
 	d.icons = desktopui.MustIcons()
 	d.detailBtns = map[int]*widget.Clickable{}
 	d.closeDetail = new(widget.Clickable)
+	d.newBtn = new(widget.Clickable)
+	d.newType = desktopui.NewChipGroup("指令")
+	d.newID = &widget.Editor{}
+	d.newCreate = new(widget.Clickable)
+	d.deleteBtn = new(widget.Clickable)
+	d.restoreBtn = new(widget.Clickable)
+	d.recycleBtn = new(widget.Clickable)
 	d.searchEd = &widget.Editor{}
 	d.kindFilter = desktopui.NewChipGroup("全部")
 	d.editBody = &widget.Editor{}
@@ -249,6 +266,27 @@ func (d *desktopApp) loop(w *app.Window) error {
 			}
 			if d.editCancel.Clicked(gtx) && d.editing {
 				d.editing = false
+			}
+			// 新建
+			if d.newBtn.Clicked(gtx) {
+				d.showNew = !d.showNew
+			}
+			if d.newCreate.Clicked(gtx) && d.showNew && !d.loading {
+				d.loading = true
+				go d.doNew()
+			}
+			// 删除（墓碑）/恢复
+			if d.deleteBtn.Clicked(gtx) && d.selID != "" && !d.loading {
+				d.loading = true
+				go d.doDelete()
+			}
+			if d.restoreBtn.Clicked(gtx) && d.selID != "" && !d.loading {
+				d.loading = true
+				go d.doRestore()
+			}
+			// 回收站切换
+			if d.recycleBtn.Clicked(gtx) {
+				d.showRecycle = !d.showRecycle
 			}
 			// 采集
 			if d.collectBtn.Clicked(gtx) && !d.loading {
@@ -1116,4 +1154,166 @@ func (d *desktopApp) doSaveEdit() {
 	d.editing = false
 	d.setMsg("已保存 "+d.selID, false)
 	d.reload()
+}
+
+// ---- OPT-B2：新建/删除（墓碑）/恢复 操作 ----
+
+func (d *desktopApp) doNew() {
+	defer func() {
+		d.loading = false
+		if d.win != nil {
+			d.win.Invalidate()
+		}
+	}()
+	if d.repo == nil {
+		d.setMsg("仓库未就绪", true)
+		return
+	}
+	kind := d.newType.Value
+	idText := strings.TrimSpace(d.newID.Text())
+	if idText == "" {
+		d.setMsg("请输入 id", true)
+		return
+	}
+	typePrefix := map[string]string{"指令": "instruction.", "技能": "skill.", "Agent": "agent."}
+	prefix := typePrefix[kind]
+	if prefix == "" {
+		prefix = "instruction."
+	}
+	fullID := prefix + idText
+	if _, _, err := ir.ParseID(fullID); err != nil {
+		d.setMsg("id 非法: "+err.Error(), true)
+		return
+	}
+	if d.bundle == nil {
+		d.bundle = &ir.Bundle{IRVersion: profile.CurrentIRVersion, Scope: ir.ScopeGlobal}
+	}
+	if _, ok := d.bundle.Lookup(fullID); ok {
+		d.setMsg("id 已存在: "+fullID, true)
+		return
+	}
+	switch prefix {
+	case "instruction.":
+		d.bundle.Instructions = append(d.bundle.Instructions, ir.Instruction{Header: ir.Header{ID: fullID, IRVersion: profile.CurrentIRVersion}, Activation: ir.ActivationAlways, Body: "（新建，请编辑正文）\n"})
+	case "skill.":
+		d.bundle.Skills = append(d.bundle.Skills, ir.PromptPack{Header: ir.Header{ID: fullID, IRVersion: profile.CurrentIRVersion}, Kind: ir.KindSkill, Name: idText, Body: "（新建，请编辑正文）\n"})
+	case "agent.":
+		d.bundle.Agents = append(d.bundle.Agents, ir.PromptPack{Header: ir.Header{ID: fullID, IRVersion: profile.CurrentIRVersion}, Kind: ir.KindAgent, Name: idText, Body: "（新建，请编辑正文）\n"})
+	}
+	m := &profile.Manifest{IRVersion: profile.CurrentIRVersion, Profile: profile.Meta{Name: "global", Kind: "global"}}
+	if err := profile.Save(d.repo.Path(store.DirProfiles, "global"), d.bundle, m); err != nil {
+		d.setMsg("保存失败: "+err.Error(), true)
+		return
+	}
+	d.newID.SetText("")
+	d.showNew = false
+	d.setMsg("已创建 "+fullID, false)
+	d.reload()
+}
+
+func (d *desktopApp) doDelete() {
+	defer func() {
+		d.loading = false
+		if d.win != nil {
+			d.win.Invalidate()
+		}
+	}()
+	if d.repo == nil || d.bundle == nil || d.selID == "" {
+		return
+	}
+	markTombstoneB2(d.bundle, d.selID)
+	m := &profile.Manifest{IRVersion: profile.CurrentIRVersion, Profile: profile.Meta{Name: "global", Kind: "global"}}
+	if err := profile.Save(d.repo.Path(store.DirProfiles, "global"), d.bundle, m); err != nil {
+		d.setMsg("删除失败: "+err.Error(), true)
+		return
+	}
+	d.setMsg("已删除（回收站可恢复）: "+d.selID, false)
+	d.selID = ""
+	d.reload()
+}
+
+func (d *desktopApp) doRestore() {
+	defer func() {
+		d.loading = false
+		if d.win != nil {
+			d.win.Invalidate()
+		}
+	}()
+	if d.repo == nil || d.bundle == nil || d.selID == "" {
+		return
+	}
+	clearTombstoneB2(d.bundle, d.selID)
+	m := &profile.Manifest{IRVersion: profile.CurrentIRVersion, Profile: profile.Meta{Name: "global", Kind: "global"}}
+	if err := profile.Save(d.repo.Path(store.DirProfiles, "global"), d.bundle, m); err != nil {
+		d.setMsg("恢复失败: "+err.Error(), true)
+		return
+	}
+	d.setMsg("已恢复: "+d.selID, false)
+	d.reload()
+}
+
+func markTombstoneB2(b *ir.Bundle, id string) {
+	for i := range b.Instructions {
+		if b.Instructions[i].ID == id {
+			b.Instructions[i].Tombstone = true
+		}
+	}
+	for i := range b.Skills {
+		if b.Skills[i].ID == id {
+			b.Skills[i].Tombstone = true
+		}
+	}
+	for i := range b.Agents {
+		if b.Agents[i].ID == id {
+			b.Agents[i].Tombstone = true
+		}
+	}
+	for i := range b.MCPServers {
+		if b.MCPServers[i].ID == id {
+			b.MCPServers[i].Tombstone = true
+		}
+	}
+	for i := range b.Hooks {
+		if b.Hooks[i].ID == id {
+			b.Hooks[i].Tombstone = true
+		}
+	}
+	for i := range b.Settings {
+		if b.Settings[i].ID == id {
+			b.Settings[i].Tombstone = true
+		}
+	}
+}
+
+func clearTombstoneB2(b *ir.Bundle, id string) {
+	for i := range b.Instructions {
+		if b.Instructions[i].ID == id {
+			b.Instructions[i].Tombstone = false
+		}
+	}
+	for i := range b.Skills {
+		if b.Skills[i].ID == id {
+			b.Skills[i].Tombstone = false
+		}
+	}
+	for i := range b.Agents {
+		if b.Agents[i].ID == id {
+			b.Agents[i].Tombstone = false
+		}
+	}
+	for i := range b.MCPServers {
+		if b.MCPServers[i].ID == id {
+			b.MCPServers[i].Tombstone = false
+		}
+	}
+	for i := range b.Hooks {
+		if b.Hooks[i].ID == id {
+			b.Hooks[i].Tombstone = false
+		}
+	}
+	for i := range b.Settings {
+		if b.Settings[i].ID == id {
+			b.Settings[i].Tombstone = false
+		}
+	}
 }

@@ -47,9 +47,10 @@ const (
 	pageDrift
 	pageHistory
 	pageActivity
+	pageDiscover
 )
 
-var pageNames = []string{"仪表盘", "实体", "采集", "迁移", "快照", "密钥", "一致性", "历史", "活动"}
+var pageNames = []string{"仪表盘", "实体", "采集", "迁移", "快照", "密钥", "一致性", "历史", "活动", "发现"}
 
 // toolOptions 采集/迁移可选工具。
 var toolOptions = []string{"claude-code", "codex", "copilot", "zhanlu", "gemini", "claude-desktop", "grokbuild", "cursor", "windsurf", "aider", "cline", "roo", "opencode"}
@@ -460,6 +461,8 @@ func (d *desktopApp) pageLayout(gtx layout.Context, th *material.Theme, titleCol
 		children = append(children, d.historyPage(th, titleColor)...)
 	case pageActivity:
 		children = append(children, d.activityPage(th, titleColor)...)
+	case pageDiscover:
+		children = append(children, d.discoverPage(th, titleColor)...)
 	}
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
 }
@@ -1785,6 +1788,145 @@ func (d *desktopApp) activityPage(th *material.Theme, titleColor color.NRGBA) []
 								return lbl.Layout(gtx)
 							}),
 						)
+					}),
+				)
+			})
+		}))
+		children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(desktopui.SpaceS)}.Layout))
+	}
+	return children
+}
+
+// ---- OPT-D1：发现页（覆盖率视图，F09） ----
+
+// coverageItem 一个工具的覆盖率。
+type coverageItem struct {
+	tool      string
+	disk      int // 磁盘条目数
+	managed   int // 已纳管条目数
+	unmanaged []string
+}
+
+// loadCoverage 计算各工具覆盖率（磁盘 vs 已纳管）。
+func (d *desktopApp) loadCoverage() []coverageItem {
+	var out []coverageItem
+	if d.repo == nil {
+		return out
+	}
+	sb, err := profile.Load(d.repo.Path(store.DirProfiles, "global"), ir.ScopeGlobal)
+	if err != nil {
+		return out
+	}
+	for _, a := range adapters.List() {
+		tool := string(a.Meta().ID)
+		// 磁盘条目（重新 Import）
+		disk := map[string]bool{}
+		locs, _ := a.Detect(context.Background())
+		for _, loc := range locs {
+			b, err := a.Import(context.Background(), loc)
+			if err != nil {
+				continue
+			}
+			for _, m := range b.MCPServers {
+				disk[m.ID] = true
+			}
+			for _, s := range b.Skills {
+				disk[s.ID] = true
+			}
+			for _, i2 := range b.Instructions {
+				disk[i2.ID] = true
+			}
+		}
+		// 已纳管（origin.tool == tool）
+		managed := map[string]bool{}
+		for _, m := range sb.Bundle.MCPServers {
+			if m.Origin != nil && m.Origin.Tool == tool {
+				managed[m.ID] = true
+			}
+		}
+		for _, s := range sb.Bundle.Skills {
+			if s.Origin != nil && s.Origin.Tool == tool {
+				managed[s.ID] = true
+			}
+		}
+		for _, i2 := range sb.Bundle.Instructions {
+			if i2.Origin != nil && i2.Origin.Tool == tool {
+				managed[i2.ID] = true
+			}
+		}
+		var unm []string
+		for id := range disk {
+			if !managed[id] {
+				unm = append(unm, id)
+			}
+		}
+		if len(disk) > 0 || len(managed) > 0 {
+			out = append(out, coverageItem{tool: tool, disk: len(disk), managed: len(managed), unmanaged: unm})
+		}
+	}
+	return out
+}
+
+// discoverPage 发现页：每工具覆盖率 + 未纳管条目。
+func (d *desktopApp) discoverPage(th *material.Theme, titleColor color.NRGBA) []layout.FlexChild {
+	cs := d.ts.Colors
+	var children []layout.FlexChild
+	children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		return material.H6(th, "发现（磁盘 vs 已纳管覆盖率）").Layout(gtx)
+	}))
+	children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		lbl := material.Body2(th, "检测各工具磁盘配置中尚未纳入 SSOT 管理的条目")
+		lbl.Color = cs.TextSecondary
+		return layout.UniformInset(unit.Dp(desktopui.SpaceS)).Layout(gtx, lbl.Layout)
+	}))
+	children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(desktopui.SpaceM)}.Layout))
+
+	items := d.loadCoverage()
+	if len(items) == 0 {
+		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			lbl := material.Body1(th, "未发现工具配置（先采集）")
+			lbl.Color = cs.TextSecondary
+			return lbl.Layout(gtx)
+		}))
+		return children
+	}
+	for _, it := range items {
+		it := it
+		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			rate := 0
+			if it.disk > 0 {
+				rate = it.managed * 100 / it.disk
+			}
+			rateColor := cs.Success
+			if rate < 50 {
+				rateColor = cs.Danger
+			} else if rate < 90 {
+				rateColor = cs.Accent
+			}
+			return desktopui.Card(gtx, cs, nil, func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+							layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+								lbl := material.Body2(th, it.tool)
+								lbl.Color = cs.Text
+								lbl.Font.Weight = font.Medium
+								return lbl.Layout(gtx)
+							}),
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								lbl := material.Body2(th, fmt.Sprintf("%d/%d 已纳管（%d%%）", it.managed, it.disk, rate))
+								lbl.Color = rateColor
+								return lbl.Layout(gtx)
+							}),
+						)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						if len(it.unmanaged) == 0 {
+							return layout.Dimensions{}
+						}
+						lbl := material.Caption(th, "未纳管："+strings.Join(it.unmanaged, "、"))
+						lbl.Color = cs.TextSecondary
+						return layout.UniformInset(unit.Dp(desktopui.SpaceS)).Layout(gtx, lbl.Layout)
 					}),
 				)
 			})

@@ -462,25 +462,100 @@ func (d *desktopApp) pageLayout(gtx layout.Context, th *material.Theme, titleCol
 }
 
 // dashboardPage 仪表盘。
+// dashboardPage 健康看板（F14）：健康分大卡 + 统计卡 + 分类计数卡。
 func (d *desktopApp) dashboardPage(th *material.Theme) []layout.FlexChild {
+	cs := d.ts.Colors
+	tombs, secretN, driftN, valErrs := 0, 0, 0, 0
+	if d.bundle != nil {
+		for _, x := range d.bundle.Instructions {
+			if x.Tombstone {
+				tombs++
+			}
+		}
+		for _, x := range d.bundle.MCPServers {
+			if x.Tombstone {
+				tombs++
+			}
+		}
+		for _, x := range d.bundle.Skills {
+			if x.Tombstone {
+				tombs++
+			}
+		}
+		secretN = len(d.scanSecretRefs())
+		for _, it := range d.loadDrift() {
+			if it.status != "一致" {
+				driftN++
+			}
+		}
+		issues := ir.Validate(d.bundle, ir.ValidateOptions{CurrentIRVersion: profile.CurrentIRVersion})
+		for _, is := range issues {
+			if is.Level == ir.SeverityError {
+				valErrs++
+			}
+		}
+	}
+	score := 100 - tombs*2 - driftN*3 - valErrs*5
+	if score < 0 {
+		score = 0
+	}
+	scoreColor := cs.Success
+	if score < 60 {
+		scoreColor = cs.Danger
+	} else if score < 85 {
+		scoreColor = cs.Accent
+	}
 	return []layout.FlexChild{
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return material.H5(th, "概览").Layout(gtx)
+			return material.H5(th, "健康看板").Layout(gtx)
+		}),
+		layout.Rigid(layout.Spacer{Height: unit.Dp(12)}.Layout),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return desktopui.Card(gtx, cs, nil, func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						l := material.H3(th, fmt.Sprintf("%d", score))
+						l.Color = scoreColor
+						l.Alignment = 1
+						return l.Layout(gtx)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						l := material.Body2(th, "配置健康分（0-100）")
+						l.Alignment = 1
+						l.Color = cs.TextSecondary
+						return l.Layout(gtx)
+					}),
+				)
+			})
 		}),
 		layout.Rigid(layout.Spacer{Height: unit.Dp(12)}.Layout),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
-				layout.Rigid(statCard(th, fmt.Sprintf("%d", d.stats.tools), "已接入工具")),
+				layout.Rigid(statCard(th, fmt.Sprintf("%d", d.stats.tools), "接入工具")),
 				layout.Rigid(layout.Spacer{Width: unit.Dp(12)}.Layout),
-				layout.Rigid(statCard(th, fmt.Sprintf("%d", d.stats.entities), "已采集实体")),
+				layout.Rigid(statCard(th, fmt.Sprintf("%d", d.stats.entities), "采集实体")),
 				layout.Rigid(layout.Spacer{Width: unit.Dp(12)}.Layout),
 				layout.Rigid(statCard(th, fmt.Sprintf("%d", d.stats.snapshots), "快照数")),
 			)
 		}),
 		layout.Rigid(layout.Spacer{Height: unit.Dp(12)}.Layout),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+				layout.Rigid(healthCard(th, cs, fmt.Sprintf("%d", tombs), "墓碑条目", cs.Accent)),
+				layout.Rigid(layout.Spacer{Width: unit.Dp(12)}.Layout),
+				layout.Rigid(healthCard(th, cs, fmt.Sprintf("%d", secretN), "secretref", cs.Accent)),
+				layout.Rigid(layout.Spacer{Width: unit.Dp(12)}.Layout),
+				layout.Rigid(healthCard(th, cs, fmt.Sprintf("%d", driftN), "漂移项", cs.Danger)),
+				layout.Rigid(layout.Spacer{Width: unit.Dp(12)}.Layout),
+				layout.Rigid(healthCard(th, cs, fmt.Sprintf("%d", valErrs), "校验失败", cs.Danger)),
+			)
+		}),
+		layout.Rigid(layout.Spacer{Height: unit.Dp(12)}.Layout),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			if d.repo != nil {
-				return material.Body2(th, "仓库："+d.repo.Root).Layout(gtx)
+				l := material.Body2(th, "仓库："+d.repo.Root)
+				l.Color = cs.TextSecondary
+				return l.Layout(gtx)
 			}
 			return layout.Dimensions{}
 		}),
@@ -1626,4 +1701,26 @@ func (d *desktopApp) historyPage(th *material.Theme, titleColor color.NRGBA) []l
 		children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(desktopui.SpaceS)}.Layout))
 	}
 	return children
+}
+
+// healthCard 健康分类计数卡。
+func healthCard(th *material.Theme, cs desktopui.Colors, num, label string, accent color.NRGBA) layout.Widget {
+	return func(gtx layout.Context) layout.Dimensions {
+		return desktopui.Card(gtx, cs, nil, func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					l := material.H4(th, num)
+					l.Color = accent
+					l.Alignment = 1
+					return l.Layout(gtx)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					l := material.Caption(th, label)
+					l.Color = cs.TextSecondary
+					l.Alignment = 1
+					return l.Layout(gtx)
+				}),
+			)
+		})
+	}
 }

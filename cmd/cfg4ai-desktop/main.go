@@ -11,8 +11,13 @@ import (
 
 	"gioui.org/app"
 	"gioui.org/font"
+	"image"
+
+	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/op"
+	"gioui.org/op/clip"
+	"gioui.org/op/paint"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
@@ -23,6 +28,7 @@ import (
 	"github.com/timywel/ai4config/internal/core/migrate"
 	"github.com/timywel/ai4config/internal/core/profile"
 	"github.com/timywel/ai4config/internal/core/secrets"
+	"github.com/timywel/ai4config/internal/desktopui"
 	"github.com/timywel/ai4config/internal/platform/paths"
 	"github.com/timywel/ai4config/internal/store"
 )
@@ -57,12 +63,12 @@ type desktopApp struct {
 	navBtns    []*widget.Clickable
 	refreshBtn *widget.Clickable
 
-	collectTool  *widget.Enum
+	collectTool  *desktopui.ChipGroup
 	collectBtn   *widget.Clickable
-	collectScope *widget.Enum
+	collectScope *desktopui.ChipGroup
 
-	migrateFrom *widget.Enum
-	migrateTo   *widget.Enum
+	migrateFrom *desktopui.ChipGroup
+	migrateTo   *desktopui.ChipGroup
 	migrateBtn  *widget.Clickable
 	migrateDry  *widget.Bool
 
@@ -73,6 +79,9 @@ type desktopApp struct {
 	entityList *widget.List
 	snapWidget *widget.List
 	win        *app.Window // 用于 goroutine 完成后触发重绘
+
+	ts    *desktopui.ThemeStore // 主题（深色默认）
+	icons desktopui.IconSet     // 图标集
 }
 
 type snapItem struct {
@@ -85,10 +94,10 @@ func newDesktopApp() *desktopApp {
 	d := &desktopApp{
 		entityList:   &widget.List{List: layout.List{Axis: layout.Vertical}},
 		snapWidget:   &widget.List{List: layout.List{Axis: layout.Vertical}},
-		collectTool:  &widget.Enum{},
-		collectScope: &widget.Enum{},
-		migrateFrom:  &widget.Enum{},
-		migrateTo:    &widget.Enum{},
+		collectTool:  desktopui.NewChipGroup(""),
+		collectScope: desktopui.NewChipGroup("all"),
+		migrateFrom:  desktopui.NewChipGroup("claude-code"),
+		migrateTo:    desktopui.NewChipGroup("codex"),
 		snapNote:     &widget.Editor{},
 		refreshBtn:   new(widget.Clickable),
 		collectBtn:   new(widget.Clickable),
@@ -100,6 +109,8 @@ func newDesktopApp() *desktopApp {
 	}
 	d.collectTool.Value = ""
 	d.collectScope.Value = "all"
+	d.ts = desktopui.NewThemeStore(true) // 深色默认
+	d.icons = desktopui.MustIcons()
 	d.migrateFrom.Value = "claude-code"
 	d.migrateTo.Value = "codex"
 
@@ -166,11 +177,12 @@ func (d *desktopApp) reload() {
 // loop 主事件循环 + 布局。
 func (d *desktopApp) loop(w *app.Window) error {
 	d.win = w // 持有窗口引用供异步重绘
-	th := material.NewTheme()
+	th := d.ts.Theme
+	cs := d.ts.Colors
 	var ops op.Ops
-	titleColor := color.NRGBA{R: 0x1a, G: 0x5f, B: 0xb4, A: 0xff}
-	errColor := color.NRGBA{R: 0xb0, G: 0x3a, B: 0x3a, A: 0xff}
-	okColor := color.NRGBA{R: 0x1e, G: 0x7e, B: 0x34, A: 0xff}
+	titleColor := cs.Accent
+	errColor := cs.Danger
+	okColor := cs.Success
 
 	for {
 		switch e := w.Event().(type) {
@@ -178,6 +190,7 @@ func (d *desktopApp) loop(w *app.Window) error {
 			return e.Err
 		case app.FrameEvent:
 			gtx := app.NewContext(&ops, e)
+			paint.Fill(gtx.Ops, cs.Bg) // 主题底色
 
 			// 导航点击
 			for i, btn := range d.navBtns {
@@ -255,24 +268,70 @@ func (d *desktopApp) loop(w *app.Window) error {
 	}
 }
 
-// navLayout 左侧导航。
+// navLayout 左侧图标导航（图标+文字，选中高亮卡片式）。
 func (d *desktopApp) navLayout(gtx layout.Context, th *material.Theme) layout.Dimensions {
+	cs := d.ts.Colors
+	navIcons := []*widget.Icon{d.icons.Dashboard, d.icons.List, d.icons.Download, d.icons.Sync, d.icons.Snapshot}
 	var children []layout.FlexChild
 	for i, name := range pageNames {
-		i, name := i, name
+		i := i
+		var ic *widget.Icon
+		if i < len(navIcons) {
+			ic = navIcons[i]
+		}
+		selected := d.page == i
 		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			btn := material.Button(th, d.navBtns[i], name)
-			if d.page == i {
-				btn.Background = color.NRGBA{R: 0x1a, G: 0x5f, B: 0xb4, A: 0xff}
-			}
-			return layout.UniformInset(unit.Dp(4)).Layout(gtx, btn.Layout)
+			return d.navItem(gtx, th, cs, ic, name, selected, d.navBtns[i])
 		}))
 	}
 	children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout))
 	children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-		return layout.UniformInset(unit.Dp(4)).Layout(gtx, material.Button(th, d.refreshBtn, "刷新").Layout)
+		return d.navItem(gtx, th, cs, d.icons.History, "刷新", false, d.refreshBtn)
 	}))
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
+}
+
+// navItem 单个导航项：图标+文字，选中/hover 态背景。
+func (d *desktopApp) navItem(gtx layout.Context, th *material.Theme, cs desktopui.Colors, icon *widget.Icon, name string, selected bool, btn *widget.Clickable) layout.Dimensions {
+	bg := color.NRGBA{}
+	fg := cs.Text
+	if selected {
+		bg = cs.Accent
+		fg = cs.Surface
+	} else if btn.Hovered() {
+		bg = cs.SurfaceHover
+	}
+	return btn.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		pointer.CursorPointer.Add(gtx.Ops)
+		return layout.Stack{}.Layout(gtx,
+			layout.Expanded(func(gtx layout.Context) layout.Dimensions {
+				if selected || btn.Hovered() {
+					r := gtx.Dp(unit.Dp(desktopui.RadiusM))
+					rr := clip.RRect{Rect: image.Rectangle{Max: gtx.Constraints.Min}, NE: r, NW: r, SE: r, SW: r}
+					paint.FillShape(gtx.Ops, bg, rr.Op(gtx.Ops))
+				}
+				return layout.Dimensions{Size: gtx.Constraints.Min}
+			}),
+			layout.Stacked(func(gtx layout.Context) layout.Dimensions {
+				return layout.UniformInset(unit.Dp(desktopui.SpaceM)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							if icon != nil {
+								return icon.Layout(gtx, fg)
+							}
+							return layout.Dimensions{}
+						}),
+						layout.Rigid(layout.Spacer{Width: unit.Dp(desktopui.SpaceM)}.Layout),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							lbl := material.Body2(th, name)
+							lbl.Color = fg
+							return lbl.Layout(gtx)
+						}),
+					)
+				})
+			}),
+		)
+	})
 }
 
 // pageLayout 右侧内容区（按当前页切换）。
@@ -386,7 +445,7 @@ func (d *desktopApp) collectPage(th *material.Theme, titleColor color.NRGBA) []l
 					return material.Body2(th, "选择工具（全部留空=所有）：").Layout(gtx)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return d.enumLayout(gtx, th, d.collectTool, toolOptions)
+					return d.collectTool.Layout(gtx, th, d.ts.Colors, toolOptions)
 				}),
 			)
 		}),
@@ -408,13 +467,13 @@ func (d *desktopApp) migratePage(th *material.Theme, titleColor color.NRGBA) []l
 			return material.Body2(th, "从：").Layout(gtx)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return d.enumLayout(gtx, th, d.migrateFrom, toolOptions)
+			return d.migrateFrom.Layout(gtx, th, d.ts.Colors, toolOptions)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return material.Body2(th, "到：").Layout(gtx)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return d.enumLayout(gtx, th, d.migrateTo, toolOptions)
+			return d.migrateTo.Layout(gtx, th, d.ts.Colors, toolOptions)
 		}),
 		layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -463,22 +522,15 @@ func (d *desktopApp) snapshotPage(th *material.Theme, titleColor color.NRGBA) []
 	return children
 }
 
-// enumLayout 单选组布局。
-func (d *desktopApp) enumLayout(gtx layout.Context, th *material.Theme, e *widget.Enum, options []string) layout.Dimensions {
-	var children []layout.FlexChild
-	for _, opt := range options {
-		opt := opt
-		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return material.RadioButton(th, e, opt, opt).Layout(gtx)
-		}))
-	}
-	return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
-}
-
 // ---- 操作（goroutine 异步，避免阻塞 UI） ----
 
 func (d *desktopApp) doCollect() {
-	defer func() { d.loading = false; if d.win != nil { d.win.Invalidate() } }()
+	defer func() {
+		d.loading = false
+		if d.win != nil {
+			d.win.Invalidate()
+		}
+	}()
 	if d.repo == nil {
 		d.setMsg("仓库未就绪", true)
 		return
@@ -512,7 +564,12 @@ func (d *desktopApp) doCollect() {
 }
 
 func (d *desktopApp) doMigrate() {
-	defer func() { d.loading = false; if d.win != nil { d.win.Invalidate() } }()
+	defer func() {
+		d.loading = false
+		if d.win != nil {
+			d.win.Invalidate()
+		}
+	}()
 	if d.repo == nil {
 		d.setMsg("仓库未就绪", true)
 		return
@@ -560,7 +617,12 @@ func (d *desktopApp) doMigrate() {
 }
 
 func (d *desktopApp) doSnapshotCreate() {
-	defer func() { d.loading = false; if d.win != nil { d.win.Invalidate() } }()
+	defer func() {
+		d.loading = false
+		if d.win != nil {
+			d.win.Invalidate()
+		}
+	}()
 	if d.repo == nil {
 		d.setMsg("仓库未就绪", true)
 		return
@@ -576,7 +638,12 @@ func (d *desktopApp) doSnapshotCreate() {
 }
 
 func (d *desktopApp) doSnapshotRestore(id string) {
-	defer func() { d.loading = false; if d.win != nil { d.win.Invalidate() } }()
+	defer func() {
+		d.loading = false
+		if d.win != nil {
+			d.win.Invalidate()
+		}
+	}()
 	if d.repo == nil {
 		d.setMsg("仓库未就绪", true)
 		return

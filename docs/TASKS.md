@@ -199,8 +199,8 @@
 
 ## W-A 设计基座 + 最小可信（先行波次）
 
-- [ ] **OPT-A1** 修 goroutine 不重绘 bug（doXxx 完成后 w.Invalidate()）
-- [ ] **OPT-A2** 设计系统落地（internal/desktopui 包：双主题色板/字体/图标/卡片/Toast/Modal/组件库）
+- [x] **OPT-A1** 修 goroutine 不重绘 bug（doXxx 完成后 w.Invalidate()）
+- [x] **OPT-A2** 设计系统落地（internal/desktopui 包：双主题色板/字体/图标/卡片/Toast/Modal/组件库）
 - [ ] **OPT-A3** 导航改 component.NewNav 图标导航 + 工具选择改 chip 流式布局
 - [ ] **OPT-A4** F01 实体详情浏览（三栏+详情抽屉按类型渲染）
 - [ ] **OPT-A5** F02 过滤+全文搜索

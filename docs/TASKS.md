@@ -209,7 +209,7 @@
 
 - [x] **OPT-B1** F03 条目编辑（表单化+校验+防覆盖）
 - [x] **OPT-B2** F04 新建/删除回收站/重命名级联
-- [ ] **OPT-B3** F05 启停+annotations.yaml 侧车+applies_to 矩阵
+- [x] **OPT-B3** F05 启停+annotations.yaml 侧车+applies_to 矩阵
 - [ ] **OPT-B4** F08 secret 管理界面
 
 ## W-C 信任与治理

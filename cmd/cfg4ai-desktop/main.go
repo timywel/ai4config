@@ -49,9 +49,10 @@ const (
 	pageActivity
 	pageDiscover
 	pageGraph
+	pageSync
 )
 
-var pageNames = []string{"仪表盘", "实体", "采集", "迁移", "快照", "密钥", "一致性", "历史", "活动", "发现", "关系"}
+var pageNames = []string{"仪表盘", "实体", "采集", "迁移", "快照", "密钥", "一致性", "历史", "活动", "发现", "关系", "同步"}
 
 // toolOptions 采集/迁移可选工具。
 var toolOptions = []string{"claude-code", "codex", "copilot", "zhanlu", "gemini", "claude-desktop", "grokbuild", "cursor", "windsurf", "aider", "cline", "roo", "opencode"}
@@ -114,7 +115,12 @@ type desktopApp struct {
 	batchEnable  *widget.Clickable    // 批量启用
 	batchDisable *widget.Clickable    // 批量禁用
 	batchDelete  *widget.Clickable    // 批量删除
-	showNew      bool                 // 新建表单显隐
+
+	syncRemote *widget.Editor    // 同步远端地址
+	syncPush   *widget.Clickable // 推送
+	syncPull   *widget.Clickable // 拉取
+	syncInit   *widget.Clickable // 初始化远端
+	showNew    bool              // 新建表单显隐
 
 	searchEd   *widget.Editor       // 搜索框（F02）
 	kindFilter *desktopui.ChipGroup // 类型过滤 chip（F02）
@@ -164,6 +170,10 @@ func newDesktopApp() *desktopApp {
 	d.deleteBtn = new(widget.Clickable)
 	d.restoreBtn = new(widget.Clickable)
 	d.recycleBtn = new(widget.Clickable)
+	d.syncRemote = &widget.Editor{}
+	d.syncPush = new(widget.Clickable)
+	d.syncPull = new(widget.Clickable)
+	d.syncInit = new(widget.Clickable)
 	d.multiSel = map[string]bool{}
 	d.checkboxes = map[int]*widget.Bool{}
 	d.batchEnable = new(widget.Clickable)
@@ -306,6 +316,19 @@ func (d *desktopApp) loop(w *app.Window) error {
 			// 回收站切换
 			if d.recycleBtn.Clicked(gtx) {
 				d.showRecycle = !d.showRecycle
+			}
+			// 同步
+			if d.syncInit.Clicked(gtx) && !d.loading {
+				d.loading = true
+				go d.doSyncInit()
+			}
+			if d.syncPush.Clicked(gtx) && !d.loading {
+				d.loading = true
+				go d.doSyncPush()
+			}
+			if d.syncPull.Clicked(gtx) && !d.loading {
+				d.loading = true
+				go d.doSyncPull()
 			}
 			// 批量操作
 			if d.batchEnable.Clicked(gtx) && !d.loading {
@@ -492,6 +515,8 @@ func (d *desktopApp) pageLayout(gtx layout.Context, th *material.Theme, titleCol
 		children = append(children, d.discoverPage(th, titleColor)...)
 	case pageGraph:
 		children = append(children, d.graphPage(th, titleColor)...)
+	case pageSync:
+		children = append(children, d.syncPage(th, titleColor)...)
 	}
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
 }
@@ -2284,4 +2309,126 @@ func templateByTitle(title string) *builtinTemplate {
 		}
 	}
 	return nil
+}
+
+// ---- OPT-D6：同步页（F16 sync GUI） ----
+
+// syncPage 同步页：远端配置 + push/pull + 状态。
+func (d *desktopApp) syncPage(th *material.Theme, titleColor color.NRGBA) []layout.FlexChild {
+	cs := d.ts.Colors
+	var children []layout.FlexChild
+	children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		return material.H6(th, "同步（跨机）").Layout(gtx)
+	}))
+	// 状态卡
+	if d.repo != nil {
+		status, _ := d.repo.SyncStatus()
+		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return desktopui.Card(gtx, cs, nil, func(gtx layout.Context) layout.Dimensions {
+				lbl := material.Body2(th, "状态："+status)
+				lbl.Color = cs.Text
+				return lbl.Layout(gtx)
+			})
+		}))
+	}
+	children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(desktopui.SpaceM)}.Layout))
+	// 远端配置
+	children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+				return material.Editor(th, d.syncRemote, "远端地址（git remote URL）").Layout(gtx)
+			}),
+			layout.Rigid(layout.Spacer{Width: unit.Dp(desktopui.SpaceS)}.Layout),
+			layout.Rigid(material.Button(th, d.syncInit, "初始化").Layout),
+		)
+	}))
+	children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(desktopui.SpaceM)}.Layout))
+	// push/pull
+	children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				btn := material.Button(th, d.syncPush, "推送")
+				btn.Background = cs.Accent
+				return btn.Layout(gtx)
+			}),
+			layout.Rigid(layout.Spacer{Width: unit.Dp(desktopui.SpaceS)}.Layout),
+			layout.Rigid(material.Button(th, d.syncPull, "拉取").Layout),
+		)
+	}))
+	children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		lbl := material.Caption(th, "push 前全仓敏感扫描（preflight），命中即阻断；白名单制：仅 profiles/registry/config/exports 入库")
+		lbl.Color = cs.TextSecondary
+		return layout.UniformInset(unit.Dp(desktopui.SpaceS)).Layout(gtx, lbl.Layout)
+	}))
+	return children
+}
+
+// doSyncInit 初始化远端。
+func (d *desktopApp) doSyncInit() {
+	defer func() {
+		d.loading = false
+		if d.win != nil {
+			d.win.Invalidate()
+		}
+	}()
+	if d.repo == nil {
+		d.setMsg("仓库未就绪", true)
+		return
+	}
+	url := strings.TrimSpace(d.syncRemote.Text())
+	if url == "" {
+		d.setMsg("请输入远端地址", true)
+		return
+	}
+	if err := d.repo.SyncInit(url); err != nil {
+		d.setMsg("初始化失败: "+err.Error(), true)
+		return
+	}
+	d.setMsg("已初始化远端: "+url, false)
+}
+
+// doSyncPush 推送（preflight 扫描）。
+func (d *desktopApp) doSyncPush() {
+	defer func() {
+		d.loading = false
+		if d.win != nil {
+			d.win.Invalidate()
+		}
+	}()
+	if d.repo == nil {
+		return
+	}
+	err := d.repo.SyncPush(secrets.DefaultScanner(), func(matches []secrets.ScanMatch) bool {
+		d.setMsg(fmt.Sprintf("preflight 命中 %d 处疑似敏感内容，已阻断", len(matches)), true)
+		return false
+	})
+	if err != nil {
+		d.setMsg("推送失败: "+err.Error(), true)
+		return
+	}
+	d.setMsg("已推送", false)
+}
+
+// doSyncPull 拉取。
+func (d *desktopApp) doSyncPull() {
+	defer func() {
+		d.loading = false
+		if d.win != nil {
+			d.win.Invalidate()
+		}
+	}()
+	if d.repo == nil {
+		return
+	}
+	conflict, err := d.repo.SyncPull()
+	if err != nil {
+		if conflict {
+			d.setMsg("pull 冲突：请按标准 git 流程处理", true)
+		} else {
+			d.setMsg("拉取失败: "+err.Error(), true)
+		}
+		return
+	}
+	d.setMsg("已拉取", false)
+	d.reload()
 }

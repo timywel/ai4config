@@ -116,11 +116,17 @@ type desktopApp struct {
 	batchDisable *widget.Clickable    // 批量禁用
 	batchDelete  *widget.Clickable    // 批量删除
 
-	syncRemote *widget.Editor    // 同步远端地址
-	syncPush   *widget.Clickable // 推送
-	syncPull   *widget.Clickable // 拉取
-	syncInit   *widget.Clickable // 初始化远端
-	showNew    bool              // 新建表单显隐
+	syncRemote *widget.Editor // 同步远端地址
+
+	paletteOpen   bool              // 命令面板开（F17）
+	paletteEditor *widget.Editor    // 面板搜索框
+	paletteSel    int               // 选中项
+	paletteList   *widget.List      // 结果列表
+	syncPush      *widget.Clickable // 推送
+	syncPull      *widget.Clickable // 拉取
+	syncInit      *widget.Clickable // 初始化远端
+	paletteBtn    *widget.Clickable // 命令面板唤出
+	showNew       bool              // 新建表单显隐
 
 	searchEd   *widget.Editor       // 搜索框（F02）
 	kindFilter *desktopui.ChipGroup // 类型过滤 chip（F02）
@@ -174,6 +180,9 @@ func newDesktopApp() *desktopApp {
 	d.syncPush = new(widget.Clickable)
 	d.syncPull = new(widget.Clickable)
 	d.syncInit = new(widget.Clickable)
+	d.paletteBtn = new(widget.Clickable)
+	d.paletteEditor = &widget.Editor{SingleLine: true}
+	d.paletteList = &widget.List{List: layout.List{Axis: layout.Vertical}}
 	d.multiSel = map[string]bool{}
 	d.checkboxes = map[int]*widget.Bool{}
 	d.batchEnable = new(widget.Clickable)
@@ -268,6 +277,8 @@ func (d *desktopApp) loop(w *app.Window) error {
 			gtx := app.NewContext(&ops, e)
 			paint.Fill(gtx.Ops, cs.Bg) // 主题底色
 
+			// 命令面板键盘事件（Ctrl+K 唤出）
+
 			// 导航点击
 			for i, btn := range d.navBtns {
 				if btn.Clicked(gtx) {
@@ -279,6 +290,13 @@ func (d *desktopApp) loop(w *app.Window) error {
 			}
 			if d.refreshBtn.Clicked(gtx) {
 				d.reload()
+			}
+
+			// 命令面板唤出
+			if d.paletteBtn.Clicked(gtx) {
+				d.paletteOpen = true
+				d.paletteEditor.SetText("")
+				d.paletteSel = 0
 			}
 			if d.closeDetail.Clicked(gtx) {
 				d.selID = ""
@@ -426,6 +444,9 @@ func (d *desktopApp) navLayout(gtx layout.Context, th *material.Theme) layout.Di
 	children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout))
 	children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 		return d.navItem(gtx, th, cs, d.icons.History, "刷新", false, d.refreshBtn)
+	}))
+	children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		return d.navItem(gtx, th, cs, d.icons.Search, "命令面板", d.paletteOpen, d.paletteBtn)
 	}))
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
 }
@@ -2431,4 +2452,107 @@ func (d *desktopApp) doSyncPull() {
 	}
 	d.setMsg("已拉取", false)
 	d.reload()
+}
+
+// ---- OPT-E1：命令面板（Ctrl+K，F17，简化版：条件渲染替换内容区） ----
+
+type paletteItem struct {
+	label   string
+	group   string
+	pageIdx int
+	act     func()
+	selID   string
+}
+
+func (d *desktopApp) paletteBuild() []paletteItem {
+	var items []paletteItem
+	for i, name := range pageNames {
+		i := i
+		items = append(items, paletteItem{label: "跳转到「" + name + "」", group: "页面", pageIdx: i, act: func() { d.page = i }})
+	}
+	items = append(items,
+		paletteItem{label: "新建条目", group: "动作", pageIdx: pageEntities, act: func() { d.page = pageEntities; d.showNew = true }},
+		paletteItem{label: "采集全部工具", group: "动作", pageIdx: pageCollect, act: func() { d.page = pageCollect; d.collectTool.Value = ""; go d.doCollect() }},
+		paletteItem{label: "创建快照", group: "动作", pageIdx: pageSnapshot, act: func() { d.page = pageSnapshot; go d.doSnapshotCreate() }},
+		paletteItem{label: "刷新数据", group: "动作", act: func() { d.reload() }},
+	)
+	for _, it := range d.items {
+		it := it
+		items = append(items, paletteItem{label: it.id, group: "实体", pageIdx: pageEntities, selID: it.id, act: func() {
+			d.page = pageEntities
+			d.selKind = it.kind
+			d.selID = it.id
+		}})
+	}
+	q := strings.ToLower(strings.TrimSpace(d.paletteEditor.Text()))
+	if q == "" {
+		return items
+	}
+	var out []paletteItem
+	for _, it := range items {
+		if subsequenceMatch(strings.ToLower(it.label+" "+it.group), q) {
+			out = append(out, it)
+		}
+	}
+	return out
+}
+
+func subsequenceMatch(s, q string) bool {
+	qi := 0
+	for _, r := range s {
+		if qi < len(q) && r == rune(q[qi]) {
+			qi++
+		}
+	}
+	return qi == len(q)
+}
+
+// paletteView 命令面板（paletteOpen 时替换内容区；简化版避免深层嵌套）。
+func (d *desktopApp) paletteView(gtx layout.Context, th *material.Theme, cs desktopui.Colors) layout.Dimensions {
+	items := d.paletteBuild()
+	if d.paletteSel >= len(items) {
+		// 回车执行选中项（Editor Submit）
+		if d.paletteEditor.Submit {
+			if d.paletteSel < len(items) {
+				items[d.paletteSel].act()
+			}
+			d.paletteOpen = false
+		}
+		d.paletteSel = maxInt(0, len(items)-1)
+	}
+	return desktopui.Card(gtx, cs, nil, func(gtx layout.Context) layout.Dimensions {
+		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions { return d.icons.Search.Layout(gtx, cs.TextSecondary) }),
+					layout.Rigid(layout.Spacer{Width: unit.Dp(desktopui.SpaceS)}.Layout),
+					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+						return material.Editor(th, d.paletteEditor, "输入命令或搜索…（↑↓ 选择，回车执行，Esc 关闭）").Layout(gtx)
+					}),
+				)
+			}),
+			layout.Rigid(layout.Spacer{Height: unit.Dp(desktopui.SpaceM)}.Layout),
+			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+				return d.paletteList.Layout(gtx, len(items), func(gtx layout.Context, i int) layout.Dimensions {
+					it := items[i]
+					fg := cs.Text
+					if i == d.paletteSel {
+						fg = cs.Accent
+					}
+					return layout.UniformInset(unit.Dp(desktopui.SpaceS)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						lbl := material.Body2(th, "["+it.group+"] "+it.label)
+						lbl.Color = fg
+						return lbl.Layout(gtx)
+					})
+				})
+			}),
+		)
+	})
+}
+
+func maxInt(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }

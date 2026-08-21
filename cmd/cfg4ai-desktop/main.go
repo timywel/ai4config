@@ -107,7 +107,13 @@ type desktopApp struct {
 	restoreBtn  *widget.Clickable    // 恢复（去墓碑）
 	showRecycle bool                 // 回收站视图
 	recycleBtn  *widget.Clickable    // 回收站切换
-	showNew     bool                 // 新建表单显隐
+
+	multiSel     map[string]bool      // 多选集合（F11）
+	checkboxes   map[int]*widget.Bool // 行复选框
+	batchEnable  *widget.Clickable    // 批量启用
+	batchDisable *widget.Clickable    // 批量禁用
+	batchDelete  *widget.Clickable    // 批量删除
+	showNew      bool                 // 新建表单显隐
 
 	searchEd   *widget.Editor       // 搜索框（F02）
 	kindFilter *desktopui.ChipGroup // 类型过滤 chip（F02）
@@ -156,6 +162,11 @@ func newDesktopApp() *desktopApp {
 	d.deleteBtn = new(widget.Clickable)
 	d.restoreBtn = new(widget.Clickable)
 	d.recycleBtn = new(widget.Clickable)
+	d.multiSel = map[string]bool{}
+	d.checkboxes = map[int]*widget.Bool{}
+	d.batchEnable = new(widget.Clickable)
+	d.batchDisable = new(widget.Clickable)
+	d.batchDelete = new(widget.Clickable)
 	d.searchEd = &widget.Editor{}
 	d.kindFilter = desktopui.NewChipGroup("全部")
 	d.editBody = &widget.Editor{}
@@ -293,6 +304,19 @@ func (d *desktopApp) loop(w *app.Window) error {
 			// 回收站切换
 			if d.recycleBtn.Clicked(gtx) {
 				d.showRecycle = !d.showRecycle
+			}
+			// 批量操作
+			if d.batchEnable.Clicked(gtx) && !d.loading {
+				d.loading = true
+				go d.doBatchToggle(false)
+			}
+			if d.batchDisable.Clicked(gtx) && !d.loading {
+				d.loading = true
+				go d.doBatchToggle(true)
+			}
+			if d.batchDelete.Clicked(gtx) && !d.loading {
+				d.loading = true
+				go d.doBatchDelete()
 			}
 			// 采集
 			if d.collectBtn.Clicked(gtx) && !d.loading {
@@ -660,6 +684,22 @@ func (d *desktopApp) entitiesPage(th *material.Theme) []layout.FlexChild {
 						return layout.UniformInset(unit.Dp(desktopui.SpaceM)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 							return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
 								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									if d.checkboxes[i] == nil {
+										d.checkboxes[i] = &widget.Bool{}
+									}
+									cb := d.checkboxes[i]
+									cb.Value = d.multiSel[it.id]
+									if cb.Update(gtx) {
+										if cb.Value {
+											d.multiSel[it.id] = true
+										} else {
+											delete(d.multiSel, it.id)
+										}
+									}
+									return material.CheckBox(th, cb, "").Layout(gtx)
+								}),
+								layout.Rigid(layout.Spacer{Width: unit.Dp(desktopui.SpaceS)}.Layout),
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 									return desktopui.Badge(gtx, cs, it.kind, cs.Accent, func(gtx layout.Context) layout.Dimensions {
 										lbl := material.Caption(th, it.kind)
 										lbl.Color = cs.Surface
@@ -686,6 +726,30 @@ func (d *desktopApp) entitiesPage(th *material.Theme) []layout.FlexChild {
 			})
 		})
 	}))
+	// 批量动作条（有选中时显示）
+	if len(d.multiSel) > 0 {
+		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return desktopui.Card(gtx, cs, nil, func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						lbl := material.Body2(th, fmt.Sprintf("已选 %d 项", len(d.multiSel)))
+						lbl.Color = cs.Text
+						return lbl.Layout(gtx)
+					}),
+					layout.Rigid(layout.Spacer{Width: unit.Dp(desktopui.SpaceM)}.Layout),
+					layout.Rigid(material.Button(th, d.batchEnable, "启用").Layout),
+					layout.Rigid(layout.Spacer{Width: unit.Dp(desktopui.SpaceS)}.Layout),
+					layout.Rigid(material.Button(th, d.batchDisable, "禁用").Layout),
+					layout.Rigid(layout.Spacer{Width: unit.Dp(desktopui.SpaceS)}.Layout),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						btn := material.Button(th, d.batchDelete, "删除")
+						btn.Background = cs.Danger
+						return btn.Layout(gtx)
+					}),
+				)
+			})
+		}))
+	}
 	return children
 }
 
@@ -2050,4 +2114,72 @@ func (d *desktopApp) graphPage(th *material.Theme, titleColor color.NRGBA) []lay
 		children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(desktopui.SpaceS)}.Layout))
 	}
 	return children
+}
+
+// ---- OPT-D3：批量操作（F11） ----
+
+// doBatchToggle 批量启用/禁用（annotations ToggleDisabled）。
+func (d *desktopApp) doBatchToggle(disable bool) {
+	defer func() {
+		d.loading = false
+		if d.win != nil {
+			d.win.Invalidate()
+		}
+	}()
+	if d.repo == nil || len(d.multiSel) == 0 {
+		return
+	}
+	dir := d.repo.Path(store.DirProfiles, "global")
+	ann, err := profile.LoadAnnotations(dir)
+	if err != nil {
+		ann = &profile.Annotations{}
+	}
+	for id := range d.multiSel {
+		if disable {
+			if !ann.IsDisabled(id) {
+				ann.ToggleDisabled(id)
+			}
+		} else {
+			if ann.IsDisabled(id) {
+				ann.ToggleDisabled(id)
+			}
+		}
+	}
+	if err := profile.SaveAnnotations(dir, ann); err != nil {
+		d.setMsg("批量操作失败: "+err.Error(), true)
+		return
+	}
+	verb := "启用"
+	if disable {
+		verb = "禁用"
+	}
+	d.setMsg(fmt.Sprintf("已批量%s %d 条", verb, len(d.multiSel)), false)
+	d.multiSel = map[string]bool{}
+	d.checkboxes = map[int]*widget.Bool{}
+	d.reload()
+}
+
+// doBatchDelete 批量删除（墓碑）。
+func (d *desktopApp) doBatchDelete() {
+	defer func() {
+		d.loading = false
+		if d.win != nil {
+			d.win.Invalidate()
+		}
+	}()
+	if d.repo == nil || d.bundle == nil || len(d.multiSel) == 0 {
+		return
+	}
+	for id := range d.multiSel {
+		markTombstoneB2(d.bundle, id)
+	}
+	m := &profile.Manifest{IRVersion: profile.CurrentIRVersion, Profile: profile.Meta{Name: "global", Kind: "global"}}
+	if err := profile.Save(d.repo.Path(store.DirProfiles, "global"), d.bundle, m); err != nil {
+		d.setMsg("批量删除失败: "+err.Error(), true)
+		return
+	}
+	d.setMsg(fmt.Sprintf("已批量删除 %d 条（回收站可恢复）", len(d.multiSel)), false)
+	d.multiSel = map[string]bool{}
+	d.checkboxes = map[int]*widget.Bool{}
+	d.reload()
 }

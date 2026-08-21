@@ -100,6 +100,7 @@ type desktopApp struct {
 	closeDetail *widget.Clickable         // 关闭详情
 
 	newBtn      *widget.Clickable    // 新建入口
+	newTemplate *desktopui.ChipGroup // 新建模板选择
 	newType     *desktopui.ChipGroup // 新建类型
 	newID       *widget.Editor       // 新建 id
 	newCreate   *widget.Clickable    // 确认新建
@@ -157,6 +158,7 @@ func newDesktopApp() *desktopApp {
 	d.closeDetail = new(widget.Clickable)
 	d.newBtn = new(widget.Clickable)
 	d.newType = desktopui.NewChipGroup("指令")
+	d.newTemplate = desktopui.NewChipGroup("空白")
 	d.newID = &widget.Editor{}
 	d.newCreate = new(widget.Clickable)
 	d.deleteBtn = new(widget.Clickable)
@@ -637,9 +639,60 @@ func (d *desktopApp) entitiesPage(th *material.Theme) []layout.FlexChild {
 			}),
 		)
 	}))
+	// 标题行：计数 + 新建 + 回收站切换
 	children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-		return material.H6(th, fmt.Sprintf("实体（%d/%d）", len(filtered), len(d.items))).Layout(gtx)
+		return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+				return material.H6(th, fmt.Sprintf("实体（%d/%d）", len(filtered), len(d.items))).Layout(gtx)
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				btn := material.Button(th, d.newBtn, "新建")
+				btn.Background = cs.Accent
+				return btn.Layout(gtx)
+			}),
+			layout.Rigid(layout.Spacer{Width: unit.Dp(desktopui.SpaceS)}.Layout),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				label := "回收站"
+				if d.showRecycle {
+					label = "返回"
+				}
+				return material.Button(th, d.recycleBtn, label).Layout(gtx)
+			}),
+		)
 	}))
+	// 新建表单（showNew 时显示）
+	if d.showNew {
+		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return desktopui.Card(gtx, cs, nil, func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return material.Body2(th, "新建条目（选类型 + 模板 + id）：").Layout(gtx)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return d.newType.Layout(gtx, th, cs, []string{"指令", "技能", "Agent"})
+					}),
+					layout.Rigid(layout.Spacer{Height: unit.Dp(desktopui.SpaceS)}.Layout),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return material.Caption(th, "从模板：").Layout(gtx)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return d.newTemplate.Layout(gtx, th, cs, templateOptions())
+					}),
+					layout.Rigid(layout.Spacer{Height: unit.Dp(desktopui.SpaceS)}.Layout),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return material.Editor(th, d.newID, "id 名称（如 coding-style）").Layout(gtx)
+					}),
+					layout.Rigid(layout.Spacer{Height: unit.Dp(desktopui.SpaceS)}.Layout),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						btn := material.Button(th, d.newCreate, "创建")
+						btn.Background = cs.Accent
+						return btn.Layout(gtx)
+					}),
+				)
+			})
+		}))
+		children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(desktopui.SpaceS)}.Layout))
+	}
 	children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout))
 	// 详情面板（有选中时）
 	if d.selID != "" {
@@ -1340,6 +1393,18 @@ func (d *desktopApp) doNew() {
 	if prefix == "" {
 		prefix = "instruction."
 	}
+	// 模板正文（选模板时用模板内容）
+	bodyText := "（新建，请编辑正文）\n"
+	if tpl := templateByTitle(d.newTemplate.Value); tpl != nil {
+		bodyText = tpl.Body
+		if tpl.Kind != "" && tpl.Kind != kind {
+			kind = tpl.Kind
+			typePrefix := map[string]string{"指令": "instruction.", "技能": "skill.", "Agent": "agent."}
+			if p2 := typePrefix[kind]; p2 != "" {
+				prefix = p2
+			}
+		}
+	}
 	fullID := prefix + idText
 	if _, _, err := ir.ParseID(fullID); err != nil {
 		d.setMsg("id 非法: "+err.Error(), true)
@@ -1354,11 +1419,11 @@ func (d *desktopApp) doNew() {
 	}
 	switch prefix {
 	case "instruction.":
-		d.bundle.Instructions = append(d.bundle.Instructions, ir.Instruction{Header: ir.Header{ID: fullID, IRVersion: profile.CurrentIRVersion}, Activation: ir.ActivationAlways, Body: "（新建，请编辑正文）\n"})
+		d.bundle.Instructions = append(d.bundle.Instructions, ir.Instruction{Header: ir.Header{ID: fullID, IRVersion: profile.CurrentIRVersion}, Activation: ir.ActivationAlways, Body: bodyText})
 	case "skill.":
-		d.bundle.Skills = append(d.bundle.Skills, ir.PromptPack{Header: ir.Header{ID: fullID, IRVersion: profile.CurrentIRVersion}, Kind: ir.KindSkill, Name: idText, Body: "（新建，请编辑正文）\n"})
+		d.bundle.Skills = append(d.bundle.Skills, ir.PromptPack{Header: ir.Header{ID: fullID, IRVersion: profile.CurrentIRVersion}, Kind: ir.KindSkill, Name: idText, Body: bodyText})
 	case "agent.":
-		d.bundle.Agents = append(d.bundle.Agents, ir.PromptPack{Header: ir.Header{ID: fullID, IRVersion: profile.CurrentIRVersion}, Kind: ir.KindAgent, Name: idText, Body: "（新建，请编辑正文）\n"})
+		d.bundle.Agents = append(d.bundle.Agents, ir.PromptPack{Header: ir.Header{ID: fullID, IRVersion: profile.CurrentIRVersion}, Kind: ir.KindAgent, Name: idText, Body: bodyText})
 	}
 	m := &profile.Manifest{IRVersion: profile.CurrentIRVersion, Profile: profile.Meta{Name: "global", Kind: "global"}}
 	if err := profile.Save(d.repo.Path(store.DirProfiles, "global"), d.bundle, m); err != nil {
@@ -2182,4 +2247,41 @@ func (d *desktopApp) doBatchDelete() {
 	d.multiSel = map[string]bool{}
 	d.checkboxes = map[int]*widget.Bool{}
 	d.reload()
+}
+
+// ---- OPT-D5：模板库（F13） ----
+
+// builtinTemplate 内置模板。
+type builtinTemplate struct {
+	ID    string
+	Kind  string // 指令/技能/Agent
+	Title string
+	Body  string
+}
+
+// builtinTemplates 常用模板（OPTIMIZATION-PLAN F13）。
+var builtinTemplates = []builtinTemplate{
+	{ID: "tpl-code-review", Kind: "技能", Title: "代码评审 skill", Body: "# 代码评审\n\n对变更做本地评审：\n1. 正确性\n2. 边界与错误处理\n3. 性能\n4. 安全\n\n输出按严重度分级的问题清单。\n"},
+	{ID: "tpl-commit", Kind: "指令", Title: "提交规范指令", Body: "# 提交规范\n\n- 提交信息用中文，格式：type(scope): 主题\n- type：feat/fix/docs/refactor/test/chore\n- 提交前必须跑通测试\n"},
+	{ID: "tpl-safe-redline", Kind: "指令", Title: "安全红线指令", Body: "# 安全红线\n\n- 绝不把 secret/token/密钥写入代码或日志\n- 危险操作（删除/覆盖/推送）必须二次确认\n- 不执行来源不明的脚本\n"},
+	{ID: "tpl-mcp-fs", Kind: "技能", Title: "MCP filesystem 配方", Body: "# filesystem MCP 配方\n\ncommand: npx -y @modelcontextprotocol/server-filesystem <目录>\n注意目录权限最小化。\n"},
+}
+
+// templateOptions 新建表单的模板 chip 选项。
+func templateOptions() []string {
+	out := []string{"空白"}
+	for _, t := range builtinTemplates {
+		out = append(out, t.Title)
+	}
+	return out
+}
+
+// templateByTitle 按标题找模板。
+func templateByTitle(title string) *builtinTemplate {
+	for i := range builtinTemplates {
+		if builtinTemplates[i].Title == title {
+			return &builtinTemplates[i]
+		}
+	}
+	return nil
 }

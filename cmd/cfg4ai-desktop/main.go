@@ -8,6 +8,7 @@ import (
 	"image/color"
 	"log"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -135,11 +136,12 @@ type desktopApp struct {
 	schedBtn   *widget.Clickable // 保存定时计划
 	schedTimer *time.Ticker      // 后台定时器
 
-	permExec int  // 能力旗标：可执行命令数（F20）
-	permNet  int  // 能力旗标：网络访问数
-	permEnv  int  // 能力旗标：环境变量数
-	permRisk int  // 明文风险数（F21）
-	showNew  bool // 新建表单显隐
+	permExec    int            // 能力旗标：可执行命令数（F20）
+	permNet     int            // 能力旗标：网络访问数
+	permEnv     int            // 能力旗标：环境变量数
+	permRisk    int            // 明文风险数（F21）
+	actionStats map[string]int // 使用统计：按操作类型计数（F22）
+	showNew     bool           // 新建表单显隐
 
 	searchEd   *widget.Editor       // 搜索框（F02）
 	kindFilter *desktopui.ChipGroup // 类型过滤 chip（F02）
@@ -286,6 +288,13 @@ func (d *desktopApp) reload() {
 			if h.Handler.Command != "" {
 				d.permExec++
 			}
+		}
+	}
+	// 使用统计聚合（F22）：审计日志按操作类型计数
+	d.actionStats = map[string]int{}
+	if entries, err := d.repo.ReadAudit(500); err == nil {
+		for _, e := range entries {
+			d.actionStats[e.Op]++
 		}
 	}
 	d.stats.entities = len(d.items)
@@ -699,6 +708,21 @@ func (d *desktopApp) dashboardPage(th *material.Theme) []layout.FlexChild {
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						l := material.Caption(th, fmt.Sprintf("密钥引用 %d · 校验失败 %d（明文风险详见密钥页/一致性页）", secretN, valErrs))
+						l.Color = cs.TextSecondary
+						return l.Layout(gtx)
+					}),
+				)
+			})
+		}),
+		layout.Rigid(layout.Spacer{Height: unit.Dp(12)}.Layout),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return desktopui.Card(gtx, cs, nil, func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return material.Body1(th, "使用统计（F22）").Layout(gtx)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						l := material.Body2(th, d.actionStatsText())
 						l.Color = cs.TextSecondary
 						return l.Layout(gtx)
 					}),
@@ -2703,4 +2727,28 @@ func (d *desktopApp) doSaveSchedule() {
 	}(d.schedTimer)
 	d.setMsg("定时快照已开启: "+d.schedEnum.Value, false)
 	d.repo.Audit("schedule", "user", "global", "定时快照 "+d.schedEnum.Value, "ok", nil, 0)
+}
+
+// actionStatsText 使用统计文本（F22）：top 操作类型计数。
+func (d *desktopApp) actionStatsText() string {
+	if len(d.actionStats) == 0 {
+		return "暂无操作记录"
+	}
+	type kv struct {
+		k string
+		v int
+	}
+	var pairs []kv
+	for k, v := range d.actionStats {
+		pairs = append(pairs, kv{k, v})
+	}
+	sort.Slice(pairs, func(i, j int) bool { return pairs[i].v > pairs[j].v })
+	var parts []string
+	for i, p := range pairs {
+		if i >= 6 {
+			break
+		}
+		parts = append(parts, fmt.Sprintf("%s×%d", p.k, p.v))
+	}
+	return "操作统计：" + strings.Join(parts, " · ")
 }

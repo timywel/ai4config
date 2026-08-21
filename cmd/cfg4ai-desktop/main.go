@@ -126,7 +126,10 @@ type desktopApp struct {
 	syncPull      *widget.Clickable // 拉取
 	syncInit      *widget.Clickable // 初始化远端
 	paletteBtn    *widget.Clickable // 命令面板唤出
-	showNew       bool              // 新建表单显隐
+
+	annotations *profile.Annotations // 治理元数据（labels/favorite，F18）
+	favBtn      *widget.Clickable    // 收藏切换
+	showNew     bool                 // 新建表单显隐
 
 	searchEd   *widget.Editor       // 搜索框（F02）
 	kindFilter *desktopui.ChipGroup // 类型过滤 chip（F02）
@@ -181,6 +184,7 @@ func newDesktopApp() *desktopApp {
 	d.syncPull = new(widget.Clickable)
 	d.syncInit = new(widget.Clickable)
 	d.paletteBtn = new(widget.Clickable)
+	d.favBtn = new(widget.Clickable)
 	d.paletteEditor = &widget.Editor{SingleLine: true}
 	d.paletteList = &widget.List{List: layout.List{Axis: layout.Vertical}}
 	d.multiSel = map[string]bool{}
@@ -248,6 +252,7 @@ func (d *desktopApp) reload() {
 			add("设置", x.ID, x.Key)
 		}
 	}
+	d.annotations, _ = profile.LoadAnnotations(d.repo.Path(store.DirProfiles, "global"))
 	d.stats.tools = len(adapters.List())
 	d.stats.entities = len(d.items)
 	if snaps, err := d.repo.ListSnapshots(); err == nil {
@@ -297,6 +302,10 @@ func (d *desktopApp) loop(w *app.Window) error {
 				d.paletteOpen = true
 				d.paletteEditor.SetText("")
 				d.paletteSel = 0
+			}
+			// 收藏切换
+			if d.favBtn.Clicked(gtx) && d.selID != "" {
+				d.doToggleFavorite()
 			}
 			if d.closeDetail.Clicked(gtx) {
 				d.selID = ""
@@ -868,6 +877,10 @@ func (d *desktopApp) detailPanel(gtx layout.Context, th *material.Theme, cs desk
 						return layout.Dimensions{}
 					}
 					btn := material.IconButton(th, d.editBtn, d.icons.Edit, "编辑")
+					return btn.Layout(gtx)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					btn := material.IconButton(th, d.favBtn, d.icons.Check, "收藏")
 					return btn.Layout(gtx)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -2555,4 +2568,41 @@ func maxInt(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// doToggleFavorite 收藏切换（annotations.favorite，F18）。
+func (d *desktopApp) doToggleFavorite() {
+	if d.repo == nil || d.selID == "" {
+		return
+	}
+	dir := d.repo.Path(store.DirProfiles, "global")
+	ann, err := profile.LoadAnnotations(dir)
+	if err != nil {
+		ann = &profile.Annotations{}
+	}
+	if ann.Favorite == nil {
+		ann.Favorite = []string{}
+	}
+	found := false
+	out := ann.Favorite[:0]
+	for _, f := range ann.Favorite {
+		if f == d.selID {
+			found = true
+			continue
+		}
+		out = append(out, f)
+	}
+	if found {
+		ann.Favorite = out
+		d.setMsg("已取消收藏: "+d.selID, false)
+	} else {
+		ann.Favorite = append(ann.Favorite, d.selID)
+		d.setMsg("已收藏: "+d.selID, false)
+	}
+	if err := profile.SaveAnnotations(dir, ann); err != nil {
+		d.setMsg("收藏保存失败: "+err.Error(), true)
+		return
+	}
+	d.annotations = ann
+	d.repo.Audit("favorite", "user", "global", "切换收藏 "+d.selID, "ok", nil, 0)
 }

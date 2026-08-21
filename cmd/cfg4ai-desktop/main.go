@@ -134,7 +134,12 @@ type desktopApp struct {
 	schedEnum  *widget.Enum      // 定时计划间隔（F19）
 	schedBtn   *widget.Clickable // 保存定时计划
 	schedTimer *time.Ticker      // 后台定时器
-	showNew    bool              // 新建表单显隐
+
+	permExec int  // 能力旗标：可执行命令数（F20）
+	permNet  int  // 能力旗标：网络访问数
+	permEnv  int  // 能力旗标：环境变量数
+	permRisk int  // 明文风险数（F21）
+	showNew  bool // 新建表单显隐
 
 	searchEd   *widget.Editor       // 搜索框（F02）
 	kindFilter *desktopui.ChipGroup // 类型过滤 chip（F02）
@@ -262,6 +267,27 @@ func (d *desktopApp) reload() {
 	}
 	d.annotations, _ = profile.LoadAnnotations(d.repo.Path(store.DirProfiles, "global"))
 	d.stats.tools = len(adapters.List())
+
+	// 权限审计聚合（F20）：MCP/Hook 能力旗标
+	d.permExec, d.permNet, d.permEnv = 0, 0, 0
+	if d.bundle != nil {
+		for _, m := range d.bundle.MCPServers {
+			if m.Command != "" {
+				d.permExec++
+			}
+			if m.URL != "" {
+				d.permNet++
+			}
+			if len(m.Env) > 0 {
+				d.permEnv++
+			}
+		}
+		for _, h := range d.bundle.Hooks {
+			if h.Handler.Command != "" {
+				d.permExec++
+			}
+		}
+	}
 	d.stats.entities = len(d.items)
 	if snaps, err := d.repo.ListSnapshots(); err == nil {
 		d.stats.snapshots = len(snaps)
@@ -660,6 +686,24 @@ func (d *desktopApp) dashboardPage(th *material.Theme) []layout.FlexChild {
 				return l.Layout(gtx)
 			}
 			return layout.Dimensions{}
+		}),
+		layout.Rigid(layout.Spacer{Height: unit.Dp(12)}.Layout),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return desktopui.Card(gtx, cs, nil, func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return material.Body1(th, "权限审计（F20）").Layout(gtx)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return material.Body2(th, fmt.Sprintf("可执行命令 %d · 网络访问 %d · 环境变量 %d", d.permExec, d.permNet, d.permEnv)).Layout(gtx)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						l := material.Caption(th, fmt.Sprintf("密钥引用 %d · 校验失败 %d（明文风险详见密钥页/一致性页）", secretN, valErrs))
+						l.Color = cs.TextSecondary
+						return l.Layout(gtx)
+					}),
+				)
+			})
 		}),
 	}
 }

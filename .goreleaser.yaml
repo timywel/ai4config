@@ -19,14 +19,31 @@ builds:
     ldflags:
       - -s -w -X main.version={{.Version}}
 
+  - id: cfg4ai-desktop
+    main: ./cmd/cfg4ai-desktop
+    binary: cfg4ai-desktop
+    env:
+      - CGO_ENABLED=0
+    goos: [windows]
+    goarch: [amd64, arm64]
+    ldflags:
+      - -s -w -H windowsgui -X main.version={{.Version}}
+
 archives:
   - id: default
     formats: [tar.gz]
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    builds: [cfg4ai]
     files: [README.md, docs/cfg4ai-design.html]
   - id: windows
     formats: [zip]
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    builds: [cfg4ai]
+    files: [README.md]
+  - id: desktop
+    formats: [zip]
+    name_template: "{{ .ProjectName }}-desktop_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    builds: [cfg4ai-desktop]
     files: [README.md]
 
 checksum:

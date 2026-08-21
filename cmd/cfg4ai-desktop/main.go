@@ -228,11 +228,12 @@ func newDesktopApp() *desktopApp {
 	return d
 }
 
+var version = "1.0.0-dev" // 由 ldflags 注入
 func main() {
 	d := newDesktopApp()
 	go func() {
 		w := new(app.Window)
-		w.Option(app.Title("cfg4ai"), app.Size(unit.Dp(960), unit.Dp(680)))
+		w.Option(app.Title("cfg4ai 配置治理 v"+version), app.Size(unit.Dp(960), unit.Dp(680)))
 		if err := d.loop(w); err != nil {
 			log.Fatal(err)
 		}

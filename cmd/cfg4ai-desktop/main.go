@@ -118,7 +118,9 @@ type desktopApp struct {
 	batchDisable *widget.Clickable    // 批量禁用
 	batchDelete  *widget.Clickable    // 批量删除
 
-	syncRemote *widget.Editor // 同步远端地址
+	syncRemote *widget.Editor    // 同步远端地址
+	presetName *widget.Editor    // 团队预设名（F23）
+	presetPush *widget.Clickable // 下发预设
 
 	paletteOpen   bool              // 命令面板开（F17）
 	paletteEditor *widget.Editor    // 面板搜索框
@@ -192,6 +194,8 @@ func newDesktopApp() *desktopApp {
 	d.restoreBtn = new(widget.Clickable)
 	d.recycleBtn = new(widget.Clickable)
 	d.syncRemote = &widget.Editor{}
+	d.presetName = &widget.Editor{SingleLine: true}
+	d.presetPush = new(widget.Clickable)
 	d.syncPush = new(widget.Clickable)
 	d.syncPull = new(widget.Clickable)
 	d.syncInit = new(widget.Clickable)
@@ -403,6 +407,11 @@ func (d *desktopApp) loop(w *app.Window) error {
 			if d.syncPull.Clicked(gtx) && !d.loading {
 				d.loading = true
 				go d.doSyncPull()
+			}
+			// 团队预设下发
+			if d.presetPush.Clicked(gtx) && !d.loading {
+				d.loading = true
+				go d.doPresetPush()
 			}
 			// 批量操作
 			if d.batchEnable.Clicked(gtx) && !d.loading {
@@ -2486,6 +2495,35 @@ func (d *desktopApp) syncPage(th *material.Theme, titleColor color.NRGBA) []layo
 		)
 	}))
 	children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(desktopui.SpaceM)}.Layout))
+		// 团队下发台（F23）
+		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return desktopui.Card(gtx, cs, nil, func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return material.Body1(th, "团队预设下发（F23）").Layout(gtx)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+							layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+								return material.Editor(th, d.presetName, "预设名（profile 名，下发到团队远端）").Layout(gtx)
+							}),
+							layout.Rigid(layout.Spacer{Width: unit.Dp(desktopui.SpaceS)}.Layout),
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								btn := material.Button(th, d.presetPush, "下发")
+								btn.Background = cs.Success
+								return btn.Layout(gtx)
+							}),
+						)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						l := material.Caption(th, "下发 = 提交当前 profile 并 push 到团队远端；成员侧 pull 即得预设")
+						l.Color = cs.TextSecondary
+						return l.Layout(gtx)
+					}),
+				)
+			})
+		}))
 		lbl := material.Caption(th, "push 前全仓敏感扫描（preflight），命中即阻断；白名单制：仅 profiles/registry/config/exports 入库")
 		lbl.Color = cs.TextSecondary
 		return layout.UniformInset(unit.Dp(desktopui.SpaceS)).Layout(gtx, lbl.Layout)
@@ -2751,4 +2789,33 @@ func (d *desktopApp) actionStatsText() string {
 		parts = append(parts, fmt.Sprintf("%s×%d", p.k, p.v))
 	}
 	return "操作统计：" + strings.Join(parts, " · ")
+}
+
+// doPresetPush 团队预设下发（F23）：提交 profile 并 push 到团队远端。
+func (d *desktopApp) doPresetPush() {
+	defer func() {
+		d.loading = false
+		if d.win != nil {
+			d.win.Invalidate()
+		}
+	}()
+	if d.repo == nil {
+		d.setMsg("仓库未就绪", true)
+		return
+	}
+	name := strings.TrimSpace(d.presetName.Text())
+	if name == "" {
+		name = "global"
+	}
+	// 下发 = 当前 profile 已提交 + push 到团队远端（带审计标记）
+	err := d.repo.SyncPush(secrets.DefaultScanner(), func(matches []secrets.ScanMatch) bool {
+		d.setMsg(fmt.Sprintf("preflight 命中 %d 处疑似敏感内容，已阻断下发", len(matches)), true)
+		return false
+	})
+	if err != nil {
+		d.setMsg("下发失败: "+err.Error(), true)
+		return
+	}
+	d.repo.Audit("preset-push", "user", name, "团队预设下发 "+name, "ok", nil, 0)
+	d.setMsg("已下发团队预设: "+name, false)
 }

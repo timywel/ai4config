@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"gioui.org/app"
 	"gioui.org/font"
@@ -129,7 +130,11 @@ type desktopApp struct {
 
 	annotations *profile.Annotations // 治理元数据（labels/favorite，F18）
 	favBtn      *widget.Clickable    // 收藏切换
-	showNew     bool                 // 新建表单显隐
+
+	schedEnum  *widget.Enum      // 定时计划间隔（F19）
+	schedBtn   *widget.Clickable // 保存定时计划
+	schedTimer *time.Ticker      // 后台定时器
+	showNew    bool              // 新建表单显隐
 
 	searchEd   *widget.Editor       // 搜索框（F02）
 	kindFilter *desktopui.ChipGroup // 类型过滤 chip（F02）
@@ -185,6 +190,9 @@ func newDesktopApp() *desktopApp {
 	d.syncInit = new(widget.Clickable)
 	d.paletteBtn = new(widget.Clickable)
 	d.favBtn = new(widget.Clickable)
+	d.schedEnum = new(widget.Enum)
+	d.schedEnum.Value = "off"
+	d.schedBtn = new(widget.Clickable)
 	d.paletteEditor = &widget.Editor{SingleLine: true}
 	d.paletteList = &widget.List{List: layout.List{Axis: layout.Vertical}}
 	d.multiSel = map[string]bool{}
@@ -306,6 +314,10 @@ func (d *desktopApp) loop(w *app.Window) error {
 			// 收藏切换
 			if d.favBtn.Clicked(gtx) && d.selID != "" {
 				d.doToggleFavorite()
+			}
+			// 定时计划保存
+			if d.schedBtn.Clicked(gtx) {
+				d.doSaveSchedule()
 			}
 			if d.closeDetail.Clicked(gtx) {
 				d.selID = ""
@@ -972,6 +984,22 @@ func (d *desktopApp) snapshotPage(th *material.Theme, titleColor color.NRGBA) []
 				layout.Rigid(material.Button(th, d.snapCreate, "创建快照").Layout),
 			)
 		}),
+		layout.Rigid(layout.Spacer{Height: unit.Dp(12)}.Layout),
+	)
+	children = append(children,
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return material.Body1(th, "定时快照（F19）").Layout(gtx)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return material.RadioButton(th, d.schedEnum, "off", "关闭").Layout(gtx)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return material.RadioButton(th, d.schedEnum, "hourly", "每小时").Layout(gtx)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return material.RadioButton(th, d.schedEnum, "daily", "每天").Layout(gtx)
+		}),
+		layout.Rigid(material.Button(th, d.schedBtn, "保存定时计划").Layout),
 		layout.Rigid(layout.Spacer{Height: unit.Dp(12)}.Layout),
 	)
 	for _, s := range d.snapList {
@@ -2605,4 +2633,30 @@ func (d *desktopApp) doToggleFavorite() {
 	}
 	d.annotations = ann
 	d.repo.Audit("favorite", "user", "global", "切换收藏 "+d.selID, "ok", nil, 0)
+}
+
+// doSaveSchedule 定时快照计划（F19）：后台 ticker 按间隔创建快照。
+func (d *desktopApp) doSaveSchedule() {
+	if d.schedTimer != nil {
+		d.schedTimer.Stop()
+		d.schedTimer = nil
+	}
+	var interval time.Duration
+	switch d.schedEnum.Value {
+	case "hourly":
+		interval = time.Hour
+	case "daily":
+		interval = 24 * time.Hour
+	default:
+		d.setMsg("定时计划已关闭", false)
+		return
+	}
+	d.schedTimer = time.NewTicker(interval)
+	go func(t *time.Ticker) {
+		for range t.C {
+			d.doSnapshotCreate()
+		}
+	}(d.schedTimer)
+	d.setMsg("定时快照已开启: "+d.schedEnum.Value, false)
+	d.repo.Audit("schedule", "user", "global", "定时快照 "+d.schedEnum.Value, "ok", nil, 0)
 }

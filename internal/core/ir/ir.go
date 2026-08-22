@@ -229,6 +229,9 @@ type Warning struct {
 	Message string `yaml:"message"`
 }
 
+// CurrentVersion 当前 IR 结构版本（权威定义；采集器实体必填，IR-SCHEMA §4.1）。
+const CurrentVersion = 1
+
 // Bundle 迁移管线的内存模型（IR-SCHEMA §4）。merged 仅用于 export，不回写。
 type Bundle struct {
 	IRVersion    int

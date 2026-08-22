@@ -19,6 +19,7 @@ type Colors struct {
 	TextSecondary color.NRGBA // 次级文字
 	Accent        color.NRGBA // 主强调
 	AccentSoft    color.NRGBA // 柔和强调（tag/badge 底色）
+	TextInverse   color.NRGBA // 反转文字（强调色/成功/危险底上的文字，恒白）
 	Success       color.NRGBA
 	Danger        color.NRGBA
 	Warn          color.NRGBA
@@ -44,6 +45,7 @@ func DarkProColors() Colors {
 		TextSecondary: nrgba(0xA6ADC8),
 		Accent:        nrgba(0x89B4FA),
 		AccentSoft:    nrgba(0x313244),
+		TextInverse:   nrgba(0xFFFFFF),
 		Success:       nrgba(0xA6E3A1),
 		Danger:        nrgba(0xF38BA8),
 		Warn:          nrgba(0xF9E2AF),
@@ -61,6 +63,7 @@ func LightCleanColors() Colors {
 		TextSecondary: nrgba(0x9B9A97),
 		Accent:        nrgba(0x5B6CFF),
 		AccentSoft:    nrgba(0xEEF0FF),
+		TextInverse:   nrgba(0xFFFFFF),
 		Success:       nrgba(0x2E9E5B),
 		Danger:        nrgba(0xE03E3E),
 		Warn:          nrgba(0xD9730D),
@@ -71,14 +74,15 @@ func LightCleanColors() Colors {
 func GlassColors() Colors {
 	return Colors{
 		Bg:            nrgba(0x191735),
-		Surface:       color.NRGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x0D}, // 5% 白
-		SurfaceHover:  color.NRGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x16}, // 9% 白
-		Border:        color.NRGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x17}, // 9% 白描边
+		Surface:       color.NRGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x14}, // 8% 白（玻璃感）
+		SurfaceHover:  color.NRGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x22}, // 13% 白
+		Border:        color.NRGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x2E}, // 18% 白描边
 		Text:          nrgba(0xE8E8F0),
 		TextSecondary: color.NRGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x80},
 		Accent:        nrgba(0xA78BFA),
 		Accent2:       nrgba(0x60D5FA),
 		AccentSoft:    color.NRGBA{R: 0xA7, G: 0x8B, B: 0xFA, A: 0x26}, // 15% 紫
+		TextInverse:   nrgba(0xFFFFFF),
 		Success:       nrgba(0x34D399),
 		Danger:        nrgba(0xF87171),
 		Warn:          nrgba(0xFBBF24),

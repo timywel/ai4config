@@ -58,7 +58,7 @@ func (t *Toast) Layout(gtx layout.Context, th *material.Theme, cs Colors) layout
 				layout.Stacked(func(gtx layout.Context) layout.Dimensions {
 					return layout.UniformInset(unit.Dp(SpaceM)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 						lbl := material.Body2(th, t.text)
-						lbl.Color = cs.Surface
+						lbl.Color = cs.TextInverse
 						return lbl.Layout(gtx)
 					})
 				}),

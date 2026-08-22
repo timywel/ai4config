@@ -50,7 +50,7 @@ func chip(gtx layout.Context, th *material.Theme, cs Colors, label string, selec
 	fg := cs.Text
 	if selected {
 		bg = cs.Accent
-		fg = cs.Surface
+		fg = cs.TextInverse
 	} else if btn.Hovered() {
 		bg = cs.SurfaceHover
 	}

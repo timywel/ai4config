@@ -62,6 +62,7 @@ func Load(dir string, scope ir.Scope) (*ScopedBundle, error) {
 
 // Save 把 Bundle + Manifest 写入 profile 目录（0600，经 atomicfile 原子写）。
 func Save(dir string, b *ir.Bundle, m *Manifest) error {
+	normalizeIRVersions(b) // 兜底：ir_version 必填（IR-SCHEMA 规则5），任何采集器遗漏都在此补齐
 	if err := SaveManifest(dir, m); err != nil {
 		return err
 	}
@@ -357,4 +358,40 @@ func writeProfileFile(path string, data []byte) error {
 		return err
 	}
 	return atomicfile.WriteFile(path, data, 0o600)
+}
+
+// normalizeIRVersions 给 ir_version==0 的实体补当前版本（采集器/存量数据兜底）。
+func normalizeIRVersions(b *ir.Bundle) {
+	if b == nil {
+		return
+	}
+	fix := func(h *ir.Header) {
+		if h.IRVersion == 0 {
+			h.IRVersion = ir.CurrentVersion
+		}
+	}
+	for i := range b.Instructions {
+		fix(&b.Instructions[i].Header)
+	}
+	for i := range b.MCPServers {
+		fix(&b.MCPServers[i].Header)
+	}
+	for i := range b.Skills {
+		fix(&b.Skills[i].Header)
+	}
+	for i := range b.Agents {
+		fix(&b.Agents[i].Header)
+	}
+	for i := range b.Commands {
+		fix(&b.Commands[i].Header)
+	}
+	for i := range b.Workflows {
+		fix(&b.Workflows[i].Header)
+	}
+	for i := range b.Hooks {
+		fix(&b.Hooks[i].Header)
+	}
+	for i := range b.Settings {
+		fix(&b.Settings[i].Header)
+	}
 }

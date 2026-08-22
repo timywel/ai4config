@@ -85,6 +85,9 @@ func parsePromptPackMD(data []byte, kind ir.EntityKind, fallbackName string) (ir
 	if p.ID == "" {
 		p.ID = string(kind) + "." + sanitizeIDName(p.Name)
 	}
+	if p.IRVersion == 0 {
+		p.IRVersion = ir.CurrentVersion // 采集出口兜底：ir_version 必填（IR-SCHEMA 规则5）
+	}
 	if p.Origin != nil {
 		p.Origin.Tool = "claude-code"
 	}

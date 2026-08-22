@@ -97,9 +97,10 @@ type desktopApp struct {
 	snapWidget *widget.List
 	win        *app.Window // 用于 goroutine 完成后触发重绘
 
-	ts         *desktopui.ThemeStore // 主题（A/B/D 三主题，D 默认）
-	themeGroup *desktopui.ChipGroup  // 主题切换
-	icons      desktopui.IconSet     // 图标集
+	ts         *desktopui.ThemeStore   // 主题（A/B/D 三主题，D 默认）
+	themeGroup *desktopui.ChipGroup    // 主题切换
+	confirm    *desktopui.ConfirmModal // 危险操作确认
+	icons      desktopui.IconSet       // 图标集
 
 	bundle      *ir.Bundle                // 完整实体数据（详情用）
 	selKind     string                    // 选中实体类型
@@ -190,6 +191,7 @@ func newDesktopApp() *desktopApp {
 	d.collectScope.Value = "all"
 	d.ts = desktopui.NewThemeStore(loadThemeMode()) // 持久化偏好，默认 D
 	d.themeGroup = desktopui.NewChipGroup(desktopui.ModeNames[d.ts.Mode])
+	d.confirm = desktopui.NewConfirmModal()
 	d.icons = desktopui.MustIcons()
 	d.detailBtns = map[int]*widget.Clickable{}
 	d.closeDetail = new(widget.Clickable)
@@ -240,9 +242,23 @@ func newDesktopApp() *desktopApp {
 var version = "1.0.0-dev" // 由 ldflags 注入
 func main() {
 	d := newDesktopApp()
+	// -theme A|B|D：覆盖持久化主题偏好（调试/截图用）
+	for i, arg := range os.Args {
+		if arg == "-theme" && i+1 < len(os.Args) {
+			d.ts.SetMode(os.Args[i+1])
+			d.themeGroup.Value = desktopui.ModeNames[d.ts.Mode]
+		}
+		if arg == "-page" && i+1 < len(os.Args) { // 调试：启动直达指定页
+			for pi, name := range pageNames {
+				if name == os.Args[i+1] {
+					d.page = pi
+				}
+			}
+		}
+	}
 	go func() {
 		w := new(app.Window)
-		w.Option(app.Title("cfg4ai 配置治理 v"+version), app.Size(unit.Dp(960), unit.Dp(680)))
+		w.Option(app.Title("cfg4ai 配置治理 v"+version), app.Size(unit.Dp(1200), unit.Dp(800)))
 		if err := d.loop(w); err != nil {
 			log.Fatal(err)
 		}
@@ -401,10 +417,13 @@ func (d *desktopApp) loop(w *app.Window) error {
 				d.loading = true
 				go d.doNew()
 			}
-			// 删除（墓碑）/恢复
+			// 删除（墓碑）/恢复——删除先弹确认（防误删）
 			if d.deleteBtn.Clicked(gtx) && d.selID != "" && !d.loading {
-				d.loading = true
-				go d.doDelete()
+				id := d.selID
+				d.confirm.Show("删除条目", "确认删除 "+id+"？\n删除后进入回收站，可随时恢复。", func() {
+					d.loading = true
+					go d.doDelete()
+				})
 			}
 			if d.restoreBtn.Clicked(gtx) && d.selID != "" && !d.loading {
 				d.loading = true
@@ -442,8 +461,11 @@ func (d *desktopApp) loop(w *app.Window) error {
 				go d.doBatchToggle(true)
 			}
 			if d.batchDelete.Clicked(gtx) && !d.loading {
-				d.loading = true
-				go d.doBatchDelete()
+				n := len(d.multiSel)
+				d.confirm.Show("批量删除", fmt.Sprintf("确认删除选中的 %d 项？\n删除后进入回收站，可随时恢复。", n), func() {
+					d.loading = true
+					go d.doBatchDelete()
+				})
 			}
 			// 采集
 			if d.collectBtn.Clicked(gtx) && !d.loading {
@@ -504,6 +526,8 @@ func (d *desktopApp) loop(w *app.Window) error {
 					})
 				}),
 			)
+			// 确认弹窗（最顶层叠加）
+			d.confirm.Layout(gtx, th, cs)
 			e.Frame(gtx.Ops)
 		}
 	}
@@ -564,7 +588,7 @@ func (d *desktopApp) navItem(gtx layout.Context, th *material.Theme, cs desktopu
 	fg := cs.Text
 	if selected {
 		bg = cs.Accent
-		fg = cs.Surface
+		fg = cs.TextInverse
 	} else if btn.Hovered() {
 		bg = cs.SurfaceHover
 	}
@@ -616,6 +640,16 @@ func (d *desktopApp) pageLayout(gtx layout.Context, th *material.Theme, titleCol
 			} else {
 				lbl.Color = okColor
 			}
+			return layout.UniformInset(unit.Dp(6)).Layout(gtx, lbl.Layout)
+		}))
+	}
+
+	// 全局 loading 指示（异步操作进行中）
+	if d.loading {
+		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			cs2 := d.ts.Colors
+			lbl := material.Body2(th, "⏳ 处理中…")
+			lbl.Color = cs2.Accent
 			return layout.UniformInset(unit.Dp(6)).Layout(gtx, lbl.Layout)
 		}))
 	}
@@ -676,7 +710,11 @@ func (d *desktopApp) dashboardPage(th *material.Theme) []layout.FlexChild {
 				driftN++
 			}
 		}
-		issues := ir.Validate(d.bundle, ir.ValidateOptions{CurrentIRVersion: profile.CurrentIRVersion})
+		toolIDs := make([]string, 0, len(adapters.List()))
+		for _, a := range adapters.List() {
+			toolIDs = append(toolIDs, string(a.Meta().ID))
+		}
+		issues := ir.Validate(d.bundle, ir.ValidateOptions{CurrentIRVersion: profile.CurrentIRVersion, RegisteredTools: toolIDs})
 		for _, is := range issues {
 			if is.Level == ir.SeverityError {
 				valErrs++
@@ -741,8 +779,14 @@ func (d *desktopApp) dashboardPage(th *material.Theme) []layout.FlexChild {
 		layout.Rigid(layout.Spacer{Height: unit.Dp(12)}.Layout),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			if d.repo != nil {
-				l := material.Body2(th, "仓库："+d.repo.Root)
+				root := d.repo.Root
+				if len([]rune(root)) > 48 { // 超长路径中间省略（防溢出）
+					r := []rune(root)
+					root = string(r[:22]) + "…" + string(r[len(r)-22:])
+				}
+				l := material.Caption(th, "仓库："+root)
 				l.Color = cs.TextSecondary
+				l.MaxLines = 1
 				return l.Layout(gtx)
 			}
 			return layout.Dimensions{}
@@ -941,7 +985,7 @@ func (d *desktopApp) entitiesPage(th *material.Theme) []layout.FlexChild {
 								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 									return desktopui.Badge(gtx, cs, it.kind, cs.Accent, func(gtx layout.Context) layout.Dimensions {
 										lbl := material.Caption(th, it.kind)
-										lbl.Color = cs.Surface
+										lbl.Color = cs.TextInverse
 										return lbl.Layout(gtx)
 									})
 								}),
@@ -1561,7 +1605,11 @@ func (d *desktopApp) doSaveEdit() {
 		return
 	}
 	// 校验（IR-SCHEMA 12 条）
-	issues := ir.Validate(d.bundle, ir.ValidateOptions{CurrentIRVersion: profile.CurrentIRVersion})
+	toolIDs := make([]string, 0, len(adapters.List()))
+	for _, a := range adapters.List() {
+		toolIDs = append(toolIDs, string(a.Meta().ID))
+	}
+	issues := ir.Validate(d.bundle, ir.ValidateOptions{CurrentIRVersion: profile.CurrentIRVersion, RegisteredTools: toolIDs})
 	for _, is := range issues {
 		if is.Level == ir.SeverityError {
 			d.setMsg("校验失败: "+is.Message, true)
@@ -1964,7 +2012,7 @@ func (d *desktopApp) driftPage(th *material.Theme, titleColor color.NRGBA) []lay
 						}
 						return desktopui.Badge(gtx, cs, it.status, badgeColor, func(gtx layout.Context) layout.Dimensions {
 							lbl := material.Caption(th, it.status)
-							lbl.Color = cs.Surface
+							lbl.Color = cs.TextInverse
 							return lbl.Layout(gtx)
 						})
 					}),
@@ -2112,7 +2160,7 @@ func (d *desktopApp) activityPage(th *material.Theme, titleColor color.NRGBA) []
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return desktopui.Badge(gtx, cs, e.Op, cs.Accent, func(gtx layout.Context) layout.Dimensions {
 							lbl := material.Caption(th, e.Op)
-							lbl.Color = cs.Surface
+							lbl.Color = cs.TextInverse
 							return lbl.Layout(gtx)
 						})
 					}),
@@ -2370,7 +2418,7 @@ func (d *desktopApp) graphPage(th *material.Theme, titleColor color.NRGBA) []lay
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return desktopui.Badge(gtx, cs, e.kind, cs.Accent, func(gtx layout.Context) layout.Dimensions {
 							lbl := material.Caption(th, e.kind)
-							lbl.Color = cs.Surface
+							lbl.Color = cs.TextInverse
 							return lbl.Layout(gtx)
 						})
 					}),

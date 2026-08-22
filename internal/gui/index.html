@@ -1,198 +1,179 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="glass">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>cfg4ai</title>
+<title>cfg4ai · 配置治理</title>
 <style>
-  * { box-sizing: border-box; }
-  body { font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; margin: 0; background: #f6f7f9; color: #1f2329; }
-  .app { display: flex; min-height: 100vh; }
-  nav { width: 180px; background: #fff; border-right: 1px solid #e5e7eb; padding: 16px 0; position: sticky; top: 0; height: 100vh; }
-  nav .logo { font-weight: 700; color: #1a5fb4; padding: 0 18px 16px; border-bottom: 1px solid #eee; font-size: 17px; }
-  nav a { display: block; padding: 10px 18px; color: #4b5563; text-decoration: none; font-size: 14px; border-left: 3px solid transparent; cursor: pointer; }
-  nav a:hover { background: #f6f7f9; }
-  nav a.active { color: #1a5fb4; border-left-color: #1a5fb4; background: #e8f0fa; font-weight: 600; }
-  main { flex: 1; padding: 24px 32px; }
-  .page { display: none; }
-  .page.active { display: block; }
-  .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin-bottom: 18px; }
-  h2 { font-size: 18px; margin: 0 0 16px; }
-  .stats { display: flex; gap: 16px; flex-wrap: wrap; }
-  .stat { flex: 1; min-width: 140px; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 18px; text-align: center; }
-  .stat .num { font-size: 28px; font-weight: 700; color: #1a5fb4; }
-  .stat .label { font-size: 13px; color: #6b7280; margin-top: 4px; }
-  table { width: 100%; border-collapse: collapse; font-size: 14px; }
-  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #eee; }
-  th { background: #f6f7f9; }
-  .kind { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 10px; background: #e8f0fa; color: #1a5fb4; }
-  button { background: #1a5fb4; color: #fff; border: none; padding: 8px 18px; border-radius: 6px; cursor: pointer; font-size: 14px; }
-  button:hover { background: #1550a0; }
-  button.sec { background: #fff; color: #1a5fb4; border: 1px solid #1a5fb4; }
-  button.warn { background: #b4530a; }
-  select, input[type=text] { padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; }
-  .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin: 12px 0; }
-  .msg { padding: 10px 14px; border-radius: 6px; margin: 12px 0; font-size: 14px; display: none; }
-  .msg.ok { background: #ecf7ef; color: #1e7e34; display: block; }
-  .msg.err { background: #fdeeee; color: #b03a3a; display: block; }
-  .files { background: #282c34; color: #dfe3ea; padding: 12px; border-radius: 6px; font-family: Consolas, monospace; font-size: 12px; max-height: 240px; overflow: auto; display: none; white-space: pre; }
-  .empty { color: #888; text-align: center; padding: 30px; }
+:root,[data-theme="light"]{--bg:#f5f5f7;--bg-elev:#fff;--bg-hover:rgba(0,0,0,.04);--sidebar:rgba(255,255,255,.72);--border:rgba(0,0,0,.08);--border-strong:rgba(0,0,0,.12);--text:#1d1d1f;--text-2:#6e6e73;--text-3:#86868b;--accent:#0071e3;--accent-soft:rgba(0,113,227,.1);--accent-text:#fff;--success:#34c759;--warn:#ff9500;--danger:#ff3b30;--shadow-1:0 1px 2px rgba(0,0,0,.04);--shadow-2:0 4px 16px rgba(0,0,0,.08);--radius-s:8px;--radius-m:12px;--radius-l:16px;--grad:none}
+[data-theme="dark"]{--bg:#1e1e2e;--bg-elev:#262637;--bg-hover:rgba(255,255,255,.06);--sidebar:rgba(24,24,37,.8);--border:rgba(255,255,255,.08);--border-strong:rgba(255,255,255,.14);--text:#cdd6f4;--text-2:#a6adc8;--text-3:#7f849c;--accent:#89b4fa;--accent-soft:rgba(137,180,250,.14);--accent-text:#1e1e2e;--success:#a6e3a1;--warn:#f9e2af;--danger:#f38ba8;--shadow-1:0 1px 2px rgba(0,0,0,.2);--shadow-2:0 4px 16px rgba(0,0,0,.3);--grad:none}
+[data-theme="glass"]{--bg:transparent;--bg-elev:rgba(255,255,255,.06);--bg-hover:rgba(255,255,255,.1);--sidebar:rgba(255,255,255,.05);--border:rgba(255,255,255,.1);--border-strong:rgba(255,255,255,.18);--text:#eceaf6;--text-2:rgba(255,255,255,.62);--text-3:rgba(255,255,255,.4);--accent:#a78bfa;--accent-soft:rgba(167,139,250,.16);--accent-text:#fff;--success:#34d399;--warn:#fbbf24;--danger:#f87171;--shadow-1:0 1px 2px rgba(0,0,0,.2);--shadow-2:0 8px 32px rgba(0,0,0,.35);--radius-s:10px;--radius-m:14px;--radius-l:18px;--grad:linear-gradient(135deg,#0f0c29,#302b63 55%,#24243e)}
+*{margin:0;padding:0;box-sizing:border-box}html,body{height:100%}
+body{font-family:"Inter","SF Pro Display","PingFang SC","Microsoft YaHei",system-ui,sans-serif;background:var(--bg);color:var(--text);overflow:hidden;-webkit-font-smoothing:antialiased}
+[data-theme="glass"] body{background:var(--grad)}
+[data-theme="glass"] body::before{content:"";position:fixed;width:520px;height:520px;border-radius:50%;background:radial-gradient(circle,rgba(167,139,250,.22),transparent 70%);top:-160px;right:-120px;pointer-events:none}
+[data-theme="glass"] body::after{content:"";position:fixed;width:420px;height:420px;border-radius:50%;background:radial-gradient(circle,rgba(96,213,250,.16),transparent 70%);bottom:-140px;left:12%;pointer-events:none}
+body,.sidebar,.card,.nav-item,.toolbar,button,input{transition:background-color .35s ease,color .35s ease,border-color .35s ease,box-shadow .2s ease,transform .15s ease}
+.app{display:flex;height:100vh;position:relative;z-index:1}
+.sidebar{width:236px;flex:none;background:var(--sidebar);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:14px 10px}
+.brand{display:flex;align-items:center;gap:10px;padding:6px 12px 16px}
+.brand .mark{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,var(--accent),#60d5fa);display:flex;align-items:center;justify-content:center;font-size:15px;color:#fff;font-weight:700}
+.brand b{font-size:15px;font-weight:650;letter-spacing:-.2px}
+.brand small{display:block;font-size:10.5px;color:var(--text-3);font-weight:400}
+.nav-label{font-size:11px;font-weight:600;color:var(--text-3);letter-spacing:.6px;text-transform:uppercase;padding:14px 14px 6px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:var(--radius-s);font-size:13.5px;color:var(--text-2);cursor:pointer;margin-bottom:1px;position:relative;border:1px solid transparent}
+.nav-item:hover{background:var(--bg-hover);color:var(--text)}
+.nav-item.on{background:var(--accent-soft);color:var(--accent);font-weight:550}
+.nav-item.on::before{content:"";position:absolute;left:0;top:20%;bottom:20%;width:3px;border-radius:2px;background:var(--accent)}
+.nav-item svg{width:17px;height:17px;flex:none;opacity:.85}
+.nav-item.on svg{opacity:1}
+.sidebar-foot{margin-top:auto;padding-top:12px;border-top:1px solid var(--border)}
+.seg{display:flex;background:var(--bg-hover);border-radius:9px;padding:2px;gap:2px}
+.seg button{flex:1;border:0;background:transparent;color:var(--text-2);font-size:11.5px;padding:5px 0;border-radius:7px;cursor:pointer;font-family:inherit}
+.seg button.on{background:var(--bg-elev);color:var(--text);font-weight:600;box-shadow:var(--shadow-1)}
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+.toolbar{height:54px;flex:none;display:flex;align-items:center;gap:14px;padding:0 22px;border-bottom:1px solid var(--border);background:var(--sidebar);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px)}
+.page-title{font-size:16px;font-weight:650;letter-spacing:-.2px}
+.page-title span{color:var(--text-3);font-weight:400;font-size:13px;margin-left:8px}
+.search{margin-left:auto;width:300px;display:flex;align-items:center;gap:8px;background:var(--bg-hover);border:1px solid var(--border);border-radius:9px;padding:7px 12px;color:var(--text-3);font-size:13px;cursor:text}
+.search:hover{border-color:var(--border-strong)}
+.search kbd{margin-left:auto;font-size:10.5px;background:var(--bg-elev);border:1px solid var(--border);border-radius:4px;padding:1px 6px;color:var(--text-3)}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:9px;font-size:13px;font-weight:550;border:1px solid var(--border);background:var(--bg-elev);color:var(--text);cursor:pointer;font-family:inherit;box-shadow:var(--shadow-1)}
+.btn:hover{transform:translateY(-1px);box-shadow:var(--shadow-2)}
+.btn:active{transform:translateY(0)}
+.btn.pri{background:var(--accent);color:var(--accent-text);border-color:transparent}
+.content{flex:1;overflow-y:auto;padding:26px 30px;min-width:0}
+.content::-webkit-scrollbar{width:9px}
+.content::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:5px;border:2px solid transparent;background-clip:content-box}
+.page{animation:fadeUp .3s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+</style>
+<style>
+.hero{display:flex;align-items:center;gap:26px;background:var(--bg-elev);border:1px solid var(--border);border-radius:var(--radius-l);padding:26px 30px;box-shadow:var(--shadow-1)}
+.ring{--p:92;width:104px;height:104px;border-radius:50%;flex:none;display:grid;place-items:center;background:conic-gradient(var(--success) calc(var(--p)*1%),var(--bg-hover) 0)}
+.ring .inner{width:82px;height:82px;border-radius:50%;background:var(--bg-elev);display:grid;place-items:center;text-align:center}
+.ring b{font-size:26px;font-weight:700}
+.ring small{font-size:10px;color:var(--text-3)}
+.hero .txt{flex:1}.hero .txt h2{font-size:19px;font-weight:650;letter-spacing:-.3px}
+.hero .txt p{font-size:13px;color:var(--text-2);margin-top:6px;line-height:1.6}
+.hero .acts{display:flex;flex-direction:column;gap:8px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:18px}
+.stat{background:var(--bg-elev);border:1px solid var(--border);border-radius:var(--radius-m);padding:16px 18px;box-shadow:var(--shadow-1);cursor:pointer}
+.stat:hover{transform:translateY(-2px);box-shadow:var(--shadow-2)}
+.stat .lb{font-size:12px;color:var(--text-2);display:flex;align-items:center;gap:7px}
+.stat .lb .dot{width:8px;height:8px;border-radius:50%}
+.stat .num{font-size:27px;font-weight:680;margin-top:6px;letter-spacing:-.5px}
+.stat .sub{font-size:11.5px;color:var(--text-3);margin-top:3px}
+.sec-title{font-size:14px;font-weight:650;margin:26px 0 12px;display:flex;align-items:center}
+.sec-title span{font-size:12px;color:var(--text-3);font-weight:400;margin-left:10px}
+.sec-title a{margin-left:auto;font-size:12.5px;color:var(--accent);cursor:pointer;text-decoration:none}
+.todo,.list{background:var(--bg-elev);border:1px solid var(--border);border-radius:var(--radius-m);overflow:hidden;box-shadow:var(--shadow-1)}
+.todo-item,.row{display:flex;align-items:center;gap:14px;padding:13px 18px;border-bottom:1px solid var(--border);cursor:pointer}
+.todo-item:last-child,.row:last-child{border-bottom:0}
+.todo-item:hover,.row:hover{background:var(--bg-hover)}
+.todo-item .badge{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;flex:none;font-size:15px}
+.todo-item .tt{flex:1;font-size:13.5px;font-weight:550}
+.todo-item .ts{font-size:12px;color:var(--text-3)}
+.todo-item .go{color:var(--text-3);font-size:16px}
+.quick{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.q{background:var(--bg-elev);border:1px solid var(--border);border-radius:var(--radius-m);padding:16px;cursor:pointer;box-shadow:var(--shadow-1)}
+.q:hover{transform:translateY(-2px);box-shadow:var(--shadow-2);border-color:var(--accent)}
+.q .ic{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;margin-bottom:10px;font-size:16px}
+.q b{font-size:13.5px;font-weight:600;display:block}
+.q span{font-size:11.5px;color:var(--text-3)}
+.toolbar2{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+.chip{padding:6px 13px;border-radius:20px;font-size:12.5px;border:1px solid var(--border);background:var(--bg-elev);color:var(--text-2);cursor:pointer}
+.chip.on{background:var(--accent-soft);color:var(--accent);border-color:transparent;font-weight:600}
+.row input[type=checkbox]{width:15px;height:15px;accent-color:var(--accent)}
+.row .id{flex:1;font-size:13.5px;font-weight:550}
+.row .meta{font-size:12px;color:var(--text-3)}
+.tag{padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600}
+.t-ins{background:rgba(96,165,250,.15);color:#60a5fa}
+.t-mcp{background:var(--accent-soft);color:var(--accent)}
+.t-skl{background:rgba(52,211,153,.14);color:var(--success)}
+.st{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text-2)}
+.st .dot{width:7px;height:7px;border-radius:50%}
+.d-ok{background:var(--success)}.d-off{background:var(--text-3)}
+.hidden{display:none!important}
 </style>
 </head>
 <body>
 <div class="app">
-  <nav>
-    <div class="logo">cfg4ai</div>
-    <a data-page="dashboard" class="active">仪表盘</a>
-    <a data-page="entities">实体浏览</a>
-    <a data-page="collect">采集</a>
-    <a data-page="export">导出/迁移</a>
-    <a data-page="snapshots">快照</a>
-  </nav>
-  <main>
-    <section id="page-dashboard" class="page active">
-      <div class="card"><h2>概览</h2>
+  <aside class="sidebar">
+    <div class="brand"><span class="mark">⚙</span><span><b>cfg4ai</b><small>配置治理</small></span></div>
+    <div class="nav-label">工作区</div>
+    <div class="nav-item on" data-page="home" onclick="go(this)"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>概览</div>
+    <div class="nav-item" data-page="entities" onclick="go(this)"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>配置<span id="navEntCount" style="margin-left:auto;font-size:11px;color:var(--text-3)"></span></div>
+    <div class="nav-item" data-page="sync" onclick="go(this)"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>同步</div>
+    <div class="nav-label">系统</div>
+    <div class="nav-item" data-page="secrets" onclick="go(this)"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12.65 10C11.83 7.67 9.61 6 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6c2.61 0 4.83-1.67 5.65-4H17v4h4v-4h2v-4H12.65zM7 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/></svg>密钥</div>
+    <div class="sidebar-foot">
+      <div style="font-size:10.5px;color:var(--text-3);padding:0 4px 6px">主题</div>
+      <div class="seg">
+        <button data-t="light" onclick="theme(this)">浅色</button>
+        <button data-t="dark" onclick="theme(this)">深色</button>
+        <button data-t="glass" class="on" onclick="theme(this)">玻璃</button>
+      </div>
+    </div>
+  </aside>
+  <div class="main">
+    <div class="toolbar">
+      <span class="page-title" id="ptitle">概览<span id="psub">你的配置健康一览</span></span>
+      <div class="search" onclick="focusCmd()"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>搜索命令、配置…<kbd>⌘K</kbd></div>
+      <button class="btn" onclick="doCollect()">⬇ 采集</button>
+      <button class="btn pri" onclick="doSnapshot()">◷ 快照</button>
+    </div>
+    <div class="content" id="content">
+      <div class="page" id="pg-home">
+        <div class="hero">
+          <div class="ring" id="ringEl" style="--p:0"><div class="inner"><div><b id="healthScore">–</b><br><small>健康分</small></div></div></div>
+          <div class="txt">
+            <h2 id="healthTitle">加载中…</h2>
+            <p id="healthDesc"></p>
+          </div>
+          <div class="acts">
+            <button class="btn pri" onclick="doCollect()">⬇ 采集全部</button>
+            <button class="btn" onclick="goPage('entities')">浏览配置</button>
+          </div>
+        </div>
         <div class="stats">
-          <div class="stat"><div class="num" id="stat-tools">-</div><div class="label">已接入工具</div></div>
-          <div class="stat"><div class="num" id="stat-entities">-</div><div class="label">已采集实体</div></div>
-          <div class="stat"><div class="num" id="stat-snapshots">-</div><div class="label">快照数</div></div>
+          <div class="stat"><div class="lb"><span class="dot" style="background:var(--accent)"></span>纳管配置</div><div class="num" id="stEntities">–</div><div class="sub" id="stEntitiesSub"></div></div>
+          <div class="stat"><div class="lb"><span class="dot" style="background:var(--accent)"></span>接入工具</div><div class="num" id="stTools">–</div><div class="sub">已注册适配器</div></div>
+          <div class="stat"><div class="lb"><span class="dot" style="background:var(--success)"></span>快照</div><div class="num" id="stSnaps">–</div><div class="sub">整库时间点备份</div></div>
+          <div class="stat"><div class="lb"><span class="dot" style="background:var(--warn)"></span>仓库</div><div class="num" style="font-size:14px;word-break:break-all" id="stRepo">–</div><div class="sub">SSOT 位置</div></div>
         </div>
-        <div class="row" style="margin-top:14px"><span style="color:#6b7280;font-size:13px">仓库：<span id="repo-root">-</span></span></div>
+        <div class="sec-title">配置构成</div>
+        <div class="list" id="kindBreakdown"><div class="row"><span class="meta">加载中…</span></div></div>
       </div>
-    </section>
-    <section id="page-entities" class="page">
-      <div class="card"><h2>已采集实体</h2>
-        <table><thead><tr><th>类型</th><th>ID</th><th>备注</th></tr></thead><tbody id="entity-list"></tbody></table>
-        <div id="entity-empty" class="empty" style="display:none">无数据（先到「采集」页采集）</div>
-      </div>
-    </section>
-    <section id="page-collect" class="page">
-      <div class="card"><h2>采集配置</h2>
-        <div class="row">
-          <select id="collect-tool">
-            <option value="">全部工具</option>
-            <option value="claude-code">Claude Code</option>
-            <option value="codex">Codex</option>
-            <option value="copilot">Copilot</option>
-            <option value="zhanlu">Zhanlu</option>
-            <option value="gemini">Gemini</option>
-          </select>
-          <button onclick="doCollect()">开始采集</button>
+      <div class="page hidden" id="pg-entities">
+        <div class="toolbar2">
+          <div class="chip on" data-k="" onclick="filterKind(this)">全部</div>
+          <div class="chip" data-k="instruction" onclick="filterKind(this)">指令</div>
+          <div class="chip" data-k="mcp" onclick="filterKind(this)">MCP</div>
+          <div class="chip" data-k="skill" onclick="filterKind(this)">技能</div>
+          <div class="chip" data-k="agent" onclick="filterKind(this)">Agent</div>
+          <div class="chip" data-k="hook" onclick="filterKind(this)">Hook</div>
+          <div class="chip" data-k="setting" onclick="filterKind(this)">设置</div>
         </div>
-        <div class="msg" id="collect-msg"></div>
+        <div class="list" id="entityList"><div class="row"><span class="meta">加载中…</span></div></div>
       </div>
-    </section>
-    <section id="page-export" class="page">
-      <div class="card"><h2>导出 / 迁移</h2>
-        <div class="row">
-          <select id="export-to">
-            <option value="codex">Codex</option>
-            <option value="claude-code">Claude Code</option>
-            <option value="copilot">Copilot</option>
-            <option value="zhanlu">Zhanlu</option>
-            <option value="gemini">Gemini</option>
-          </select>
-          <button class="sec" onclick="doExport(true)">预览（dry-run）</button>
-          <button onclick="doExport(false)">确认导出</button>
+      <div class="page hidden" id="pg-sync">
+        <div class="hero" style="padding:20px 26px">
+          <div class="txt"><h2 style="font-size:16px">同步与快照</h2><p>整库时间点快照，可随时回滚。</p></div>
+          <div class="acts"><button class="btn pri" onclick="doSnapshot()">◷ 创建快照</button></div>
         </div>
-        <div class="msg" id="export-msg"></div>
-        <div class="files" id="export-files"></div>
+        <div class="sec-title">快照</div>
+        <div class="list" id="snapList"><div class="row"><span class="meta">加载中…</span></div></div>
       </div>
-    </section>
-    <section id="page-snapshots" class="page">
-      <div class="card"><h2>快照</h2>
-        <div class="row">
-          <input type="text" id="snap-note" placeholder="备注（可选）">
-          <button onclick="doSnapshotCreate()">创建快照</button>
+      <div class="page hidden" id="pg-secrets">
+        <div class="hero" style="padding:20px 26px">
+          <div class="txt"><h2 style="font-size:16px">密钥托管</h2><p>敏感值以 secretref 占位符存储，明文永不入仓。</p></div>
         </div>
-        <div class="msg" id="snap-msg"></div>
-        <table><thead><tr><th>ID</th><th>备注</th><th>文件数</th><th>操作</th></tr></thead><tbody id="snap-list"></tbody></table>
+        <div class="sec-title">说明</div>
+        <div class="list"><div class="row"><span class="meta">采集时结构化字段的敏感值自动抽取为 secretref:// 占位符，真实值存入系统密钥环（keyring）。</span></div></div>
       </div>
-    </section>
-  </main>
-</div><script>
-document.querySelectorAll("nav a").forEach(a => {
-  a.onclick = () => {
-    document.querySelectorAll("nav a").forEach(x => x.classList.remove("active"));
-    a.classList.add("active");
-    document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
-    document.getElementById("page-" + a.dataset.page).classList.add("active");
-    if (a.dataset.page === "dashboard") loadOverview();
-    if (a.dataset.page === "entities") loadEntities();
-    if (a.dataset.page === "snapshots") loadSnapshots();
-  };
-});
-function showMsg(id, text, ok) { const el = document.getElementById(id); el.textContent = text; el.className = "msg " + (ok ? "ok" : "err"); }
-function loadOverview() {
-  fetch("/api/overview").then(r => r.json()).then(o => {
-    document.getElementById("stat-tools").textContent = o.tools ?? "-";
-    document.getElementById("stat-entities").textContent = o.entities ?? "-";
-    document.getElementById("stat-snapshots").textContent = o.snapshots ?? "-";
-    document.getElementById("repo-root").textContent = o.repo_root || "-";
-  });
-}
-function loadEntities() {
-  fetch("/api/entities").then(r => r.json()).then(items => {
-    const tb = document.getElementById("entity-list");
-    tb.innerHTML = "";
-    if (!items || items.length === 0) { document.getElementById("entity-empty").style.display = "block"; return; }
-    document.getElementById("entity-empty").style.display = "none";
-    items.forEach(it => {
-      const tr = document.createElement("tr");
-      tr.innerHTML = "<td><span class=\"kind\">" + it.kind + "</span></td><td>" + it.id + "</td><td>" + (it.note || "") + "</td>";
-      tb.appendChild(tr);
-    });
-  });
-}
-function doCollect() {
-  const tool = document.getElementById("collect-tool").value;
-  showMsg("collect-msg", "采集中…", true);
-  fetch("/api/collect", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({ tool: tool }) })
-    .then(r => r.json()).then(res => {
-      if (res.ok === "true" || res.ok === true) { showMsg("collect-msg", res.message || "采集完成", true); }
-      else { showMsg("collect-msg", res.error || "失败", false); }
-    }).catch(e => showMsg("collect-msg", String(e), false));
-}
-function doExport(dryRun) {
-  const to = document.getElementById("export-to").value;
-  showMsg("export-msg", dryRun ? "预览中…" : "导出中…", true);
-  fetch("/api/export", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({ to: to, dryRun: dryRun }) })
-    .then(r => r.json()).then(res => {
-      if (res.ok) {
-        showMsg("export-msg", res.message || "完成", true);
-        const box = document.getElementById("export-files");
-        if (res.files && res.files.length > 0) { box.textContent = res.files.join("\n"); box.style.display = "block"; }
-      } else { showMsg("export-msg", res.error || "失败", false); }
-    }).catch(e => showMsg("export-msg", String(e), false));
-}
-function loadSnapshots() {
-  fetch("/api/snapshots").then(r => r.json()).then(list => {
-    const tb = document.getElementById("snap-list");
-    tb.innerHTML = "";
-    (list || []).forEach(s => {
-      const tr = document.createElement("tr");
-      tr.innerHTML = "<td>" + s.id + "</td><td>" + (s.note || "") + "</td><td>" + s.files + "</td><td><button class=\"sec\" onclick=\"doRestore('" + s.id + "')\">恢复</button></td>";
-      tb.appendChild(tr);
-    });
-  });
-}
-function doSnapshotCreate() {
-  const note = document.getElementById("snap-note").value;
-  fetch("/api/snapshot/create", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({ note: note }) })
-    .then(r => r.json()).then(res => {
-      if (res.ok) { showMsg("snap-msg", "已创建快照 " + res.id, true); loadSnapshots(); }
-      else { showMsg("snap-msg", res.error || "失败", false); }
-    });
-}
-function doRestore(id) {
-  if (!confirm("确定恢复快照 " + id + "？（会先对现状打反向快照）")) return;
-  fetch("/api/snapshot/restore", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({ id: id }) })
-    .then(r => r.json()).then(res => {
-      if (res.ok) { showMsg("snap-msg", res.message || "已恢复", true); }
-      else { showMsg("snap-msg", res.error || "失败", false); }
-    });
-}
-loadOverview();
-</script>
+    </div>
+  </div>
+</div>
+<script src="/static/app.js"></script>
 </body>
 </html>

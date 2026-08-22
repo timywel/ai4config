@@ -5,11 +5,12 @@ package gui
 
 import (
 	"context"
-	_ "embed"
+	"embed"
 	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
+	"os"
 	"os/exec"
 
 	"github.com/timywel/ai4config/internal/platform/hidecmd"
@@ -19,6 +20,9 @@ import (
 
 //go:embed index.html
 var indexHTML []byte
+
+//go:embed static
+var staticFS embed.FS
 
 // Handlers GUI 后端操作回调（由 cmd 注入，接引擎/profile/store）。
 type Handlers struct {
@@ -77,6 +81,7 @@ func NewServer(repoRoot string, h Handlers) (*Server, error) {
 	s := &Server{repoRoot: repoRoot, handlers: h, ln: ln}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", s.serveIndex)
+	mux.Handle("/static/", http.FileServer(http.FS(staticFS)))
 	mux.HandleFunc("/api/overview", s.serveOverview)
 	mux.HandleFunc("/api/entities", s.serveEntities)
 	mux.HandleFunc("/api/collect", s.serveCollect)
@@ -233,7 +238,16 @@ func (s *Server) serveSnapshotRestore(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, map[string]any{"ok": true, "message": msg})
 }
 
+// openBrowser 以 --app 独立窗口模式打开（无地址栏，类原生应用）。
+// 优先 Edge/Chrome 的 --app；找不到则回退系统默认浏览器。
 func openBrowser(url string) {
+	if runtime.GOOS == "windows" {
+		if cmd := appModeBrowser(url); cmd != nil {
+			hidecmd.Hide(cmd)
+			_ = cmd.Start()
+			return
+		}
+	}
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
 	case "windows":
@@ -245,6 +259,29 @@ func openBrowser(url string) {
 	}
 	hidecmd.Hide(cmd)
 	_ = cmd.Start()
+}
+
+// appModeBrowser 返回 --app 模式的浏览器命令（Windows 上探测 Edge/Chrome）。
+func appModeBrowser(url string) *exec.Cmd {
+	candidates := []string{
+		`C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe`,
+		`C:\Program Files\Microsoft\Edge\Application\msedge.exe`,
+	}
+	if local := os.Getenv("LOCALAPPDATA"); local != "" {
+		candidates = append([]string{local + `\Microsoft\Edge\Application\msedge.exe`}, candidates...)
+		candidates = append(candidates, local+`\Google\Chrome\Application\chrome.exe`)
+	}
+	for _, pf := range []string{os.Getenv("ProgramFiles"), os.Getenv("ProgramFiles(x86)")} {
+		if pf != "" {
+			candidates = append(candidates, pf+`\Google\Chrome\Application\chrome.exe`)
+		}
+	}
+	for _, path := range candidates {
+		if _, err := os.Stat(path); err == nil {
+			return exec.Command(path, "--app="+url, "--window-size=1280,860")
+		}
+	}
+	return nil
 }
 
 // Run 启动服务并阻塞。

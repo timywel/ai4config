@@ -4,6 +4,8 @@ package registry
 import (
 	"os"
 	"os/exec"
+
+	"github.com/timywel/ai4config/internal/platform/hidecmd"
 	"path/filepath"
 	"strings"
 )
@@ -94,6 +96,7 @@ func gitConfigGet(projectPath, key string) string {
 // gitFirstCommit 取首次提交 hash（git rev-list --max-parents=0 HEAD 的最早一条）。
 func gitFirstCommit(projectPath string) string {
 	cmd := exec.Command("git", "-C", projectPath, "rev-list", "--max-parents=0", "HEAD")
+	hidecmd.Hide(cmd)
 	out, err := cmd.Output()
 	if err != nil {
 		return ""

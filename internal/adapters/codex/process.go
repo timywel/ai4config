@@ -1,6 +1,7 @@
 package codex
 
 import (
+	"github.com/timywel/ai4config/internal/platform/hidecmd"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -10,13 +11,17 @@ import (
 func detectRunning() bool {
 	switch runtime.GOOS {
 	case "windows":
-		out, err := exec.Command("tasklist", "/FI", "IMAGENAME eq codex.exe", "/NH").Output()
+		cmd := exec.Command("tasklist", "/FI", "IMAGENAME eq codex.exe", "/NH")
+		hidecmd.Hide(cmd)
+		out, err := cmd.Output()
 		if err != nil {
 			return false
 		}
 		return strings.Contains(string(out), "codex.exe")
 	default:
-		out, err := exec.Command("pgrep", "-f", "codex").Output()
+		cmd := exec.Command("pgrep", "-f", "codex")
+		hidecmd.Hide(cmd)
+		out, err := cmd.Output()
 		return err == nil && len(strings.TrimSpace(string(out))) > 0
 	}
 }

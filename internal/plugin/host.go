@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/timywel/ai4config/internal/platform/hidecmd"
 	"os/exec"
 
 	"github.com/hashicorp/go-plugin"
@@ -22,10 +23,12 @@ type hostAdapter struct {
 // LoadPlugin 启动一个插件进程并包装为 adapters.Adapter。
 // 返回 (适配器, 清理函数 kill, 错误)。
 func LoadPlugin(path string) (adapters.Adapter, func(), error) {
+	plugCmd := exec.Command(path)
+	hidecmd.Hide(plugCmd)
 	client := plugin.NewClient(&plugin.ClientConfig{
 		HandshakeConfig:  Handshake,
 		Plugins:          map[string]plugin.Plugin{"adapter": &AdapterPlugin{}},
-		Cmd:              exec.Command(path),
+		Cmd:              plugCmd,
 		AllowedProtocols: []plugin.Protocol{plugin.ProtocolNetRPC},
 	})
 	rpcClient, err := client.Client()

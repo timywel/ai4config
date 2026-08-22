@@ -11,6 +11,8 @@ import (
 	"net"
 	"net/http"
 	"os/exec"
+
+	"github.com/timywel/ai4config/internal/platform/hidecmd"
 	"runtime"
 	"time"
 )
@@ -241,6 +243,7 @@ func openBrowser(url string) {
 	default:
 		cmd = exec.Command("xdg-open", url)
 	}
+	hidecmd.Hide(cmd)
 	_ = cmd.Start()
 }
 

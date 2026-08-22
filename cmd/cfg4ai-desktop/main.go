@@ -138,12 +138,14 @@ type desktopApp struct {
 	schedBtn   *widget.Clickable // 保存定时计划
 	schedTimer *time.Ticker      // 后台定时器
 
-	permExec    int            // 能力旗标：可执行命令数（F20）
-	permNet     int            // 能力旗标：网络访问数
-	permEnv     int            // 能力旗标：环境变量数
-	permRisk    int            // 明文风险数（F21）
-	actionStats map[string]int // 使用统计：按操作类型计数（F22）
-	showNew     bool           // 新建表单显隐
+	permExec      int            // 能力旗标：可执行命令数（F20）
+	permNet       int            // 能力旗标：网络访问数
+	permEnv       int            // 能力旗标：环境变量数
+	permRisk      int            // 明文风险数（F21）
+	actionStats   map[string]int // 使用统计：按操作类型计数（F22）
+	driftCache    []driftItem    // 漂移缓存（渲染不重复 Detect，防每帧 exec）
+	coverageCache []coverageItem // 覆盖率缓存
+	showNew       bool           // 新建表单显隐
 
 	searchEd   *widget.Editor       // 搜索框（F02）
 	kindFilter *desktopui.ChipGroup // 类型过滤 chip（F02）
@@ -246,6 +248,8 @@ func (d *desktopApp) reload() {
 	d.items = nil
 	d.bundle = nil
 	if d.repo == nil {
+		d.driftCache = nil
+		d.coverageCache = nil
 		return
 	}
 	sb, err := profile.Load(d.repo.Path(store.DirProfiles, "global"), ir.ScopeGlobal)
@@ -310,6 +314,9 @@ func (d *desktopApp) reload() {
 			d.snapList = append(d.snapList, snapItem{id: s.ID, note: s.Note, files: len(s.Files), restore: new(widget.Clickable)})
 		}
 	}
+	// 重数据缓存：reload 时计算一次，渲染路径只读（防每帧 exec 弹窗）
+	d.driftCache = d.loadDrift()
+	d.coverageCache = d.loadCoverage()
 }
 
 // loop 主事件循环 + 布局。
@@ -630,7 +637,7 @@ func (d *desktopApp) dashboardPage(th *material.Theme) []layout.FlexChild {
 			}
 		}
 		secretN = len(d.scanSecretRefs())
-		for _, it := range d.loadDrift() {
+		for _, it := range d.driftCache {
 			if it.status != "一致" {
 				driftN++
 			}
@@ -1873,7 +1880,7 @@ func (d *desktopApp) loadDrift() []driftItem {
 // driftPage 一致性页（F06）。
 func (d *desktopApp) driftPage(th *material.Theme, titleColor color.NRGBA) []layout.FlexChild {
 	cs := d.ts.Colors
-	items := d.loadDrift()
+	items := d.driftCache
 	var children []layout.FlexChild
 	children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 		return material.H6(th, "一致性（SSOT vs 磁盘）").Layout(gtx)
@@ -2178,7 +2185,7 @@ func (d *desktopApp) discoverPage(th *material.Theme, titleColor color.NRGBA) []
 	}))
 	children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(desktopui.SpaceM)}.Layout))
 
-	items := d.loadCoverage()
+	items := d.coverageCache
 	if len(items) == 0 {
 		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			lbl := material.Body1(th, "未发现工具配置（先采集）")

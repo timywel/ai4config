@@ -113,6 +113,13 @@ var ModeNames = map[string]string{
 	ModeGlass:      "D 玻璃拟态",
 }
 
+// ModeShort 短标签（窄导航 chip 用，防换行挤压）。
+var ModeShort = map[string]string{
+	ModeDarkPro:    "A 深色",
+	ModeLightClean: "B 浅色",
+	ModeGlass:      "D 玻璃",
+}
+
 // ThemeStore 主题持有者（支持运行时切换）。
 type ThemeStore struct {
 	Mode   string

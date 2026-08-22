@@ -133,6 +133,7 @@ type desktopApp struct {
 	paletteSel    int               // 选中项
 	paletteList   *widget.List      // 结果列表
 	contentList   *widget.List      // 内容区垂直滚动容器
+	navList       *widget.List      // 导航项滚动容器
 	syncPush      *widget.Clickable // 推送
 	syncPull      *widget.Clickable // 拉取
 	syncInit      *widget.Clickable // 初始化远端
@@ -191,7 +192,7 @@ func newDesktopApp() *desktopApp {
 	d.collectTool.Value = ""
 	d.collectScope.Value = "all"
 	d.ts = desktopui.NewThemeStore(loadThemeMode()) // 持久化偏好，默认 D
-	d.themeGroup = desktopui.NewChipGroup(desktopui.ModeNames[d.ts.Mode])
+	d.themeGroup = desktopui.NewChipGroup(desktopui.ModeShort[d.ts.Mode])
 	d.confirm = desktopui.NewConfirmModal()
 	d.icons = desktopui.MustIcons()
 	d.detailBtns = map[int]*widget.Clickable{}
@@ -218,6 +219,7 @@ func newDesktopApp() *desktopApp {
 	d.paletteEditor = &widget.Editor{SingleLine: true}
 	d.paletteList = &widget.List{List: layout.List{Axis: layout.Vertical}}
 	d.contentList = &widget.List{List: layout.List{Axis: layout.Vertical}}
+	d.navList = &widget.List{List: layout.List{Axis: layout.Vertical}}
 	d.multiSel = map[string]bool{}
 	d.checkboxes = map[int]*widget.Bool{}
 	d.batchEnable = new(widget.Clickable)
@@ -260,7 +262,7 @@ func main() {
 	}
 	go func() {
 		w := new(app.Window)
-		w.Option(app.Title("cfg4ai 配置治理 v"+version), app.Size(unit.Dp(1200), unit.Dp(800)))
+		w.Option(app.Title("cfg4ai 配置治理 v"+version), app.Size(unit.Dp(1440), unit.Dp(960)), app.MinSize(unit.Dp(960), unit.Dp(640)))
 		if err := d.loop(w); err != nil {
 			log.Fatal(err)
 		}
@@ -383,7 +385,7 @@ func (d *desktopApp) loop(w *app.Window) error {
 				d.paletteEditor.SetText("")
 				d.paletteSel = 0
 				// 主题切换检测
-				if label := d.themeGroup.Value; label != "" && label != desktopui.ModeNames[d.ts.Mode] {
+				if label := d.themeGroup.Value; label != "" && label != desktopui.ModeShort[d.ts.Mode] {
 					d.applyThemeByLabel(label)
 				}
 			}
@@ -503,22 +505,39 @@ func (d *desktopApp) loop(w *app.Window) error {
 			// 布局：左侧导航 + 右侧内容
 			layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					gtx.Constraints.Max.X = gtx.Dp(232) // 导航固定窄宽（防主题 chip 撑宽挤压内容区）
+					gtx.Constraints.Max.X = gtx.Dp(232) // 导航固定窄宽
 					gtx.Constraints.Min.X = gtx.Dp(232)
-					return layout.UniformInset(unit.Dp(12)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								lbl := material.H6(th, "cfg4ai")
-								lbl.Color = titleColor
-								lbl.Font.Weight = font.Bold
-								return lbl.Layout(gtx)
-							}),
-							layout.Rigid(layout.Spacer{Height: unit.Dp(16)}.Layout),
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return d.navLayout(gtx, th)
-							}),
-						)
-					})
+					// Stack 撑满窗口高度：背景层撑满，内容层 Flexed 导航滚动 + 底部固定
+					return layout.Stack{}.Layout(gtx,
+						layout.Expanded(func(gtx layout.Context) layout.Dimensions {
+							return layout.Dimensions{Size: gtx.Constraints.Max}
+						}),
+						layout.Stacked(func(gtx layout.Context) layout.Dimensions {
+							gtx.Constraints.Min.Y = gtx.Constraints.Max.Y
+							return layout.UniformInset(unit.Dp(12)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+								return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+										lbl := material.H6(th, "cfg4ai")
+										lbl.Color = titleColor
+										lbl.Font.Weight = font.Bold
+										return lbl.Layout(gtx)
+									}),
+									layout.Rigid(layout.Spacer{Height: unit.Dp(16)}.Layout),
+									// 主题切换（顶部固定，始终可见）
+									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+										return d.themeGroup.Layout(gtx, th, d.ts.Colors, []string{desktopui.ModeShort[desktopui.ModeDarkPro], desktopui.ModeShort[desktopui.ModeLightClean], desktopui.ModeShort[desktopui.ModeGlass]})
+									}),
+									layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
+									layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+										return d.navPagesScroll(gtx, th)
+									}),
+									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+										return d.navFooter(gtx, th)
+									}),
+								)
+							})
+						}),
+					)
 				}),
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 					return layout.UniformInset(unit.Dp(16)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -538,55 +557,6 @@ func (d *desktopApp) loop(w *app.Window) error {
 			e.Frame(gtx.Ops)
 		}
 	}
-}
-
-// navLayout 左侧图标导航（图标+文字，选中高亮卡片式）。
-func (d *desktopApp) navLayout(gtx layout.Context, th *material.Theme) layout.Dimensions {
-	cs := d.ts.Colors
-	navIcons := []*widget.Icon{
-		d.icons.Dashboard,     // 仪表盘
-		d.icons.List,          // 实体
-		d.icons.Download,      // 采集
-		d.icons.Sync,          // 迁移（SwapHoriz）
-		d.icons.Snapshot,      // 快照
-		d.icons.Key,           // 密钥
-		d.icons.CompareArrows, // 一致性
-		d.icons.History,       // 历史
-		d.icons.Timeline,      // 活动
-		d.icons.Explore,       // 发现
-		d.icons.Hub,           // 关系
-		d.icons.Renew,         // 同步
-	}
-	var children []layout.FlexChild
-	for i, name := range pageNames {
-		i := i
-		var ic *widget.Icon
-		if i < len(navIcons) {
-			ic = navIcons[i]
-		}
-		selected := d.page == i
-		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return d.navItem(gtx, th, cs, ic, name, selected, d.navBtns[i])
-		}))
-	}
-	children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout))
-	children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-		return d.navItem(gtx, th, cs, d.icons.Refresh, "刷新", false, d.refreshBtn)
-	}))
-	children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-		return d.navItem(gtx, th, cs, d.icons.Search, "命令面板", d.paletteOpen, d.paletteBtn)
-	}))
-	children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(12)}.Layout))
-	// 主题切换（A/B/D）
-	children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-		lbl := material.Caption(th, "主题")
-		lbl.Color = cs.TextSecondary
-		return lbl.Layout(gtx)
-	}))
-	children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-		return d.themeGroup.Layout(gtx, th, cs, []string{desktopui.ModeNames[desktopui.ModeDarkPro], desktopui.ModeNames[desktopui.ModeLightClean], desktopui.ModeNames[desktopui.ModeGlass]})
-	}))
-	return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
 }
 
 // navItem 单个导航项：图标+文字，选中/hover 态背景。
@@ -2966,7 +2936,7 @@ func saveThemeMode(mode string) {
 
 // applyThemeByLabel 按 chip 显示名切换主题并持久化。
 func (d *desktopApp) applyThemeByLabel(label string) {
-	for mode, name := range desktopui.ModeNames {
+	for mode, name := range desktopui.ModeShort {
 		if name == label && mode != d.ts.Mode {
 			d.ts.SetMode(mode)
 			saveThemeMode(mode)
@@ -3011,4 +2981,40 @@ func glow(gtx layout.Context, cx, cy, r float32, c color.NRGBA) {
 		}.Op(gtx.Ops)
 		paint.FillShape(gtx.Ops, col, area)
 	}
+}
+
+// navPagesScroll 导航滚动区：12 导航项 + 刷新 + 命令面板（超高整体滚动，防重叠）。
+func (d *desktopApp) navPagesScroll(gtx layout.Context, th *material.Theme) layout.Dimensions {
+	cs := d.ts.Colors
+	navIcons := []*widget.Icon{
+		d.icons.Dashboard, d.icons.List, d.icons.Download, d.icons.Sync, d.icons.Snapshot, d.icons.Key,
+		d.icons.CompareArrows, d.icons.History, d.icons.Timeline, d.icons.Explore, d.icons.Hub, d.icons.Renew,
+	}
+	total := len(pageNames) + 2 // 12 页 + 刷新 + 命令面板
+	return d.navList.Layout(gtx, total, func(gtx layout.Context, i int) layout.Dimensions {
+		if i < len(pageNames) {
+			var ic *widget.Icon
+			if i < len(navIcons) {
+				ic = navIcons[i]
+			}
+			return d.navItem(gtx, th, cs, ic, pageNames[i], d.page == i, d.navBtns[i])
+		}
+		if i == len(pageNames) {
+			return d.navItem(gtx, th, cs, d.icons.Refresh, "刷新", false, d.refreshBtn)
+		}
+		return d.navItem(gtx, th, cs, d.icons.Search, "命令面板", d.paletteOpen, d.paletteBtn)
+	})
+}
+
+// navFooter 导航底部固定操作区（刷新/命令面板）。
+func (d *desktopApp) navFooter(gtx layout.Context, th *material.Theme) layout.Dimensions {
+	cs := d.ts.Colors
+	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return d.navItem(gtx, th, cs, d.icons.Refresh, "刷新", false, d.refreshBtn)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return d.navItem(gtx, th, cs, d.icons.Search, "命令面板", d.paletteOpen, d.paletteBtn)
+		}),
+	)
 }

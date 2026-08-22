@@ -49,8 +49,8 @@ func chip(gtx layout.Context, th *material.Theme, cs Colors, label string, selec
 	bg := cs.Surface
 	fg := cs.Text
 	if selected {
-		bg = cs.Accent
-		fg = cs.TextInverse
+		bg = cs.AccentSoft // 柔和选中：AccentSoft 底 + Accent 文字（对比度达标 + 与导航选中语义一致）
+		fg = cs.Accent
 	} else if btn.Hovered() {
 		bg = cs.SurfaceHover
 	}

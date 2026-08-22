@@ -42,7 +42,7 @@ func DarkProColors() Colors {
 		SurfaceHover:  nrgba(0x313244),
 		Border:        nrgba(0x313244),
 		Text:          nrgba(0xCDD6F4),
-		TextSecondary: nrgba(0xA6ADC8),
+		TextSecondary: nrgba(0xB8C0DA),
 		Accent:        nrgba(0x89B4FA),
 		AccentSoft:    nrgba(0x313244),
 		TextInverse:   nrgba(0xFFFFFF),
@@ -79,7 +79,7 @@ func GlassColors() Colors {
 		Border:        color.NRGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x2E}, // 18% 白描边
 		Text:          nrgba(0xE8E8F0),
 		TextSecondary: color.NRGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0x80},
-		Accent:        nrgba(0xA78BFA),
+		Accent:        nrgba(0xBFA6FF),
 		Accent2:       nrgba(0x60D5FA),
 		AccentSoft:    color.NRGBA{R: 0xA7, G: 0x8B, B: 0xFA, A: 0x26}, // 15% 紫
 		TextInverse:   nrgba(0xFFFFFF),

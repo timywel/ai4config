@@ -132,6 +132,7 @@ type desktopApp struct {
 	paletteEditor *widget.Editor    // 面板搜索框
 	paletteSel    int               // 选中项
 	paletteList   *widget.List      // 结果列表
+	contentList   *widget.List      // 内容区垂直滚动容器
 	syncPush      *widget.Clickable // 推送
 	syncPull      *widget.Clickable // 拉取
 	syncInit      *widget.Clickable // 初始化远端
@@ -216,6 +217,7 @@ func newDesktopApp() *desktopApp {
 	d.schedBtn = new(widget.Clickable)
 	d.paletteEditor = &widget.Editor{SingleLine: true}
 	d.paletteList = &widget.List{List: layout.List{Axis: layout.Vertical}}
+	d.contentList = &widget.List{List: layout.List{Axis: layout.Vertical}}
 	d.multiSel = map[string]bool{}
 	d.checkboxes = map[int]*widget.Bool{}
 	d.batchEnable = new(widget.Clickable)
@@ -501,6 +503,8 @@ func (d *desktopApp) loop(w *app.Window) error {
 			// 布局：左侧导航 + 右侧内容
 			layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					gtx.Constraints.Max.X = gtx.Dp(232) // 导航固定窄宽（防主题 chip 撑宽挤压内容区）
+					gtx.Constraints.Min.X = gtx.Dp(232)
 					return layout.UniformInset(unit.Dp(12)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 						return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -516,13 +520,16 @@ func (d *desktopApp) loop(w *app.Window) error {
 						)
 					})
 				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 					return layout.UniformInset(unit.Dp(16)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								return d.pageLayout(gtx, th, titleColor, errColor, okColor)
-							}),
-						)
+						// 内容区垂直滚动（超出窗口高度可滚，防裁切）
+						return d.contentList.Layout(gtx, 1, func(gtx layout.Context, _ int) layout.Dimensions {
+							return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									return d.pageLayout(gtx, th, titleColor, errColor, okColor)
+								}),
+							)
+						})
 					})
 				}),
 			)
@@ -585,12 +592,13 @@ func (d *desktopApp) navLayout(gtx layout.Context, th *material.Theme) layout.Di
 // navItem 单个导航项：图标+文字，选中/hover 态背景。
 func (d *desktopApp) navItem(gtx layout.Context, th *material.Theme, cs desktopui.Colors, icon *widget.Icon, name string, selected bool, btn *widget.Clickable) layout.Dimensions {
 	bg := color.NRGBA{}
-	fg := cs.Text
+	fg := cs.TextSecondary
 	if selected {
-		bg = cs.Accent
-		fg = cs.TextInverse
+		bg = cs.SurfaceHover
+		fg = cs.Accent
 	} else if btn.Hovered() {
 		bg = cs.SurfaceHover
+		fg = cs.Text
 	}
 	return btn.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		pointer.CursorPointer.Add(gtx.Ops)
@@ -600,6 +608,11 @@ func (d *desktopApp) navItem(gtx layout.Context, th *material.Theme, cs desktopu
 					r := gtx.Dp(unit.Dp(desktopui.RadiusM))
 					rr := clip.RRect{Rect: image.Rectangle{Max: gtx.Constraints.Min}, NE: r, NW: r, SE: r, SW: r}
 					paint.FillShape(gtx.Ops, bg, rr.Op(gtx.Ops))
+				}
+				// 选中态左侧 accent 竖线（设计稿还原 + 对比度达标）
+				if selected {
+					w := gtx.Dp(unit.Dp(3))
+					paint.FillShape(gtx.Ops, cs.Accent, clip.Rect{Min: image.Pt(0, 0), Max: image.Pt(w, gtx.Constraints.Min.Y)}.Op())
 				}
 				return layout.Dimensions{Size: gtx.Constraints.Min}
 			}),
@@ -1166,7 +1179,11 @@ func (d *desktopApp) snapshotPage(th *material.Theme, titleColor color.NRGBA) []
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return material.RadioButton(th, d.schedEnum, "daily", "每天").Layout(gtx)
 		}),
-		layout.Rigid(material.Button(th, d.schedBtn, "保存定时计划").Layout),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+				layout.Rigid(material.Button(th, d.schedBtn, "保存定时计划").Layout),
+			)
+		}),
 		layout.Rigid(layout.Spacer{Height: unit.Dp(12)}.Layout),
 	)
 	for _, s := range d.snapList {
@@ -1885,6 +1902,8 @@ func (d *desktopApp) secretPage(th *material.Theme, titleColor color.NRGBA) []la
 								lbl := material.Body2(th, it.ref)
 								lbl.Color = cs.Text
 								lbl.Font.Weight = font.Medium
+								lbl.MaxLines = 1
+								lbl.Truncator = "…"
 								return lbl.Layout(gtx)
 							}),
 						)

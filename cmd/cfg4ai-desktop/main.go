@@ -219,6 +219,7 @@ func newDesktopApp() *desktopApp {
 	d.editBtn = new(widget.Clickable)
 	d.editSave = new(widget.Clickable)
 	d.editCancel = new(widget.Clickable)
+	d.migrateDry = new(widget.Bool)
 	d.migrateFrom.Value = "claude-code"
 	d.migrateTo.Value = "codex"
 

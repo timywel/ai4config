@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><title>C · 中文企业工具风</title><style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f0f2f5;color:#1f2329;height:100vh;display:flex;overflow:hidden}
+.side{width:220px;background:#001529;padding:0 0 16px;display:flex;flex-direction:column}
+.logo{height:56px;display:flex;align-items:center;padding:0 18px;color:#fff;font-size:16px;font-weight:600;gap:10px;border-bottom:1px solid rgba(255,255,255,.08)}
+.logo .mark{width:26px;height:26px;border-radius:6px;background:#1677ff;display:flex;align-items:center;justify-content:center;font-size:13px}
+.nav{padding:10px 18px;font-size:13px;color:rgba(255,255,255,.65);display:flex;gap:10px;align-items:center;margin:2px 8px;border-radius:6px}
+.nav:hover{color:#fff;background:rgba(255,255,255,.06)}
+.nav.on{color:#fff;background:#1677ff}
+.nav .ic{width:15px;height:15px;border-radius:4px;background:rgba(255,255,255,.25);flex:none}
+.nav.on .ic{background:#fff}
+.sec{font-size:11px;color:rgba(255,255,255,.35);padding:14px 18px 6px}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.top{height:56px;background:#fff;border-bottom:1px solid #e5e6eb;display:flex;align-items:center;padding:0 24px;gap:16px}
+.crumb{font-size:14px;font-weight:600}
+.search{margin-left:auto;width:280px;background:#f2f3f5;border-radius:16px;padding:7px 16px;font-size:13px;color:#86909c}
+.avatar{width:30px;height:30px;border-radius:50%;background:#1677ff;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px}
+.content{flex:1;overflow:auto;padding:20px 24px}
+.banner{background:linear-gradient(120deg,#1677ff,#36cfc9);border-radius:12px;padding:22px 26px;color:#fff;margin-bottom:18px;display:flex;align-items:center}
+.banner .score{font-size:38px;font-weight:700}
+.banner .txt{margin-left:22px}
+.banner .txt b{font-size:15px;display:block}
+.banner .txt span{font-size:12.5px;opacity:.85}
+.cards{display:flex;gap:14px;margin-bottom:18px}
+.card{background:#fff;border-radius:10px;padding:16px 20px;flex:1;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.card .lb{font-size:12.5px;color:#86909c}
+.card .num{font-size:26px;font-weight:700;margin-top:4px}
+.card .trend{font-size:11.5px;margin-top:4px}
+.up{color:#00b42a}.warn{color:#ff7d00}
+.panel{background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.ptitle{padding:14px 20px;border-bottom:1px solid #f2f3f5;font-size:14px;font-weight:600;display:flex;justify-content:space-between;align-items:center}
+.ptitle .more{color:#1677ff;font-size:12.5px;font-weight:400}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:10px 20px;color:#86909c;font-weight:500;background:#fafbfc;font-size:12px}
+td{padding:12px 20px;border-bottom:1px solid #f2f3f5}
+tr:hover td{background:#f7f8fa}
+.tag{display:inline-block;padding:2px 10px;border-radius:4px;font-size:12px}
+.t-ins{background:#e8f1ff;color:#1677ff}.t-mcp{background:#f6e8ff;color:#9334e6}.t-skl{background:#e8ffea;color:#00b42a}
+.st{display:inline-flex;align-items:center;gap:6px;font-size:12.5px}
+.dot{width:7px;height:7px;border-radius:50%}
+.d-ok{background:#00b42a}.d-err{background:#f53f3f}
+.btn{padding:6px 14px;border-radius:6px;font-size:12.5px;border:1px solid #e5e6eb;color:#4e5969;background:#fff}
+.btn.pri{background:#1677ff;color:#fff;border-color:#1677ff}
+</style></head><body>
+<div class="side"><div class="logo"><span class="mark">⚙</span>cfg4ai</div>
+<div class="nav on"><span class="ic"></span>仪表盘</div><div class="nav"><span class="ic"></span>实体管理</div><div class="nav"><span class="ic"></span>采集</div><div class="nav"><span class="ic"></span>迁移</div>
+<div class="sec">治理</div>
+<div class="nav"><span class="ic"></span>快照</div><div class="nav"><span class="ic"></span>密钥管理</div><div class="nav"><span class="ic"></span>一致性</div><div class="nav"><span class="ic"></span>历史版本</div><div class="nav"><span class="ic"></span>活动审计</div>
+<div class="sec">洞察</div>
+<div class="nav"><span class="ic"></span>发现</div><div class="nav"><span class="ic"></span>依赖关系</div><div class="nav"><span class="ic"></span>同步</div></div>
+<div class="main"><div class="top"><span class="crumb">仪表盘</span><div class="search">🔍 搜索实体、命令…</div><div class="avatar">W</div></div>
+<div class="content">
+<div class="banner"><div class="score">92</div><div class="txt"><b>配置健康度良好</b><span>纳管 47 项实体 · 2 项漂移待处理 · 无校验失败</span></div></div>
+<div class="cards">
+<div class="card"><div class="lb">纳管实体</div><div class="num">47</div><div class="trend up">↑ 本周 +6</div></div>
+<div class="card"><div class="lb">漂移项</div><div class="num warn">2</div><div class="trend warn">需处理</div></div>
+<div class="card"><div class="lb">快照</div><div class="num">6</div><div class="trend">最近：今天 09:30</div></div>
+<div class="card"><div class="lb">密钥托管</div><div class="num">3</div><div class="trend up">均已脱敏</div></div>
+</div>
+<div class="panel"><div class="ptitle">实体列表<a class="more">查看全部 →</a></div>
+<table><tr><th>ID</th><th>类型</th><th>状态</th><th>来源工具</th><th>更新时间</th><th>操作</th></tr>
+<tr><td>instruction.coding-style</td><td><span class="tag t-ins">指令</span></td><td><span class="st"><span class="dot d-ok"></span>启用</span></td><td>claude-code</td><td>2 小时前</td><td><button class="btn">编辑</button></td></tr>
+<tr><td>mcp.filesystem</td><td><span class="tag t-mcp">MCP</span></td><td><span class="st"><span class="dot d-ok"></span>启用</span></td><td>codex</td><td>昨天</td><td><button class="btn">编辑</button></td></tr>
+<tr><td>skill.code-review</td><td><span class="tag t-skl">技能</span></td><td><span class="st"><span class="dot d-err"></span>禁用</span></td><td>zhanlu</td><td>3 天前</td><td><button class="btn pri">启用</button></td></tr>
+<tr><td>mcp.github</td><td><span class="tag t-mcp">MCP</span></td><td><span class="st"><span class="dot d-ok"></span>启用</span></td><td>claude-code</td><td>上周</td><td><button class="btn">编辑</button></td></tr>
+</table></div>
+</div></div></div></body></html>

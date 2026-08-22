@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><title>B · 浅色清爽风</title><style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:"Inter","PingFang SC","Microsoft YaHei",sans-serif;background:#f7f7f5;color:#37352f;height:100vh;display:flex;overflow:hidden}
+.side{width:216px;background:#fff;border-right:1px solid #e9e9e7;padding:20px 10px;display:flex;flex-direction:column}
+.logo{font-size:15px;font-weight:600;padding:0 12px 18px;display:flex;align-items:center;gap:8px}
+.logo .mark{width:20px;height:20px;border-radius:6px;background:linear-gradient(135deg,#5b6cff,#8e7dff)}
+.logo small{display:block;font-size:10px;color:#9b9a97;font-weight:400}
+.nav{padding:5px 10px;border-radius:6px;font-size:13px;color:#6f6e69;margin-bottom:1px;display:flex;gap:9px;align-items:center}
+.nav:hover{background:#f1f1ef}
+.nav.on{background:#f1f1ef;color:#37352f;font-weight:500}
+.nav .ic{width:15px;height:15px;border-radius:4px;background:#e3e2de;flex:none}
+.nav.on .ic{background:#5b6cff}
+.sec{font-size:11px;color:#9b9a97;padding:14px 12px 6px;font-weight:500}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.top{height:52px;background:#fff;border-bottom:1px solid #e9e9e7;display:flex;align-items:center;padding:0 24px;gap:14px}
+.crumb{font-size:14px;font-weight:600}
+.crumb span{color:#9b9a97;font-weight:400}
+.search{margin-left:auto;width:260px;background:#f7f7f5;border:1px solid #e9e9e7;border-radius:8px;padding:6px 12px;font-size:12.5px;color:#9b9a97}
+.content{flex:1;overflow:auto;padding:24px;max-width:1000px}
+.cards{display:flex;gap:14px;margin-bottom:20px}
+.card{background:#fff;border:1px solid #e9e9e7;border-radius:10px;padding:16px 18px;flex:1;transition:box-shadow .15s}
+.card:hover{box-shadow:0 2px 8px rgba(0,0,0,.04)}
+.card .lb{font-size:12px;color:#9b9a97}
+.card .num{font-size:24px;font-weight:600;margin-top:4px}
+.panel{background:#fff;border:1px solid #e9e9e7;border-radius:10px;overflow:hidden}
+.ptitle{padding:13px 18px;border-bottom:1px solid #f1f1ef;font-size:13.5px;font-weight:600;display:flex;justify-content:space-between}
+.ptitle span{color:#9b9a97;font-weight:400;font-size:12px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:8px 18px;color:#9b9a97;font-weight:500;border-bottom:1px solid #f1f1ef;font-size:11.5px}
+td{padding:10px 18px;border-bottom:1px solid #f7f7f5}
+tr:hover td{background:#fafafa}
+.tag{display:inline-block;padding:2px 8px;border-radius:5px;font-size:11px;font-weight:500}
+.t-ins{background:#e7edff;color:#4c5fd5}.t-mcp{background:#f3e8ff;color:#8b5cf6}.t-skl{background:#e7f6ec;color:#2e9e5b}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px}
+.d-ok{background:#2e9e5b}.d-err{background:#e03e3e}
+</style></head><body>
+<div class="side"><div class="logo"><span class="mark"></span><span>cfg4ai<small>配置治理</small></span></div>
+<div class="nav on"><span class="ic"></span>仪表盘</div><div class="nav"><span class="ic"></span>实体</div><div class="nav"><span class="ic"></span>采集</div><div class="nav"><span class="ic"></span>迁移</div>
+<div class="sec">治理</div>
+<div class="nav"><span class="ic"></span>快照</div><div class="nav"><span class="ic"></span>密钥</div><div class="nav"><span class="ic"></span>一致性</div><div class="nav"><span class="ic"></span>历史</div><div class="nav"><span class="ic"></span>活动</div>
+<div class="sec">洞察</div>
+<div class="nav"><span class="ic"></span>发现</div><div class="nav"><span class="ic"></span>关系</div><div class="nav"><span class="ic"></span>同步</div></div>
+<div class="main"><div class="top"><span class="crumb">仪表盘 <span>/ 全局健康</span></span><div class="search">⌘K 搜索命令、实体…</div></div>
+<div class="content">
+<div class="cards">
+<div class="card"><div class="lb">配置健康分</div><div class="num" style="color:#2e9e5b">92</div></div>
+<div class="card"><div class="lb">纳管实体</div><div class="num" style="color:#4c5fd5">47</div></div>
+<div class="card"><div class="lb">漂移项</div><div class="num" style="color:#d9730d">2</div></div>
+<div class="card"><div class="lb">校验失败</div><div class="num">0</div></div>
+<div class="card"><div class="lb">快照</div><div class="num">6</div></div>
+</div>
+<div class="panel"><div class="ptitle">实体列表<span>按最近更新</span></div>
+<table><tr><th>ID</th><th>类型</th><th>状态</th><th>来源工具</th><th>更新时间</th></tr>
+<tr><td>instruction.coding-style</td><td><span class="tag t-ins">指令</span></td><td><span class="dot d-ok"></span>启用</td><td>claude-code</td><td>2 小时前</td></tr>
+<tr><td>mcp.filesystem</td><td><span class="tag t-mcp">MCP</span></td><td><span class="dot d-ok"></span>启用</td><td>codex</td><td>昨天</td></tr>
+<tr><td>skill.code-review</td><td><span class="tag t-skl">技能</span></td><td><span class="dot d-err"></span>禁用</td><td>zhanlu</td><td>3 天前</td></tr>
+<tr><td>mcp.github</td><td><span class="tag t-mcp">MCP</span></td><td><span class="dot d-ok"></span>启用</td><td>claude-code</td><td>上周</td></tr>
+<tr><td>instruction.safe-redline</td><td><span class="tag t-ins">指令</span></td><td><span class="dot d-ok"></span>启用</td><td>模板库</td><td>上周</td></tr>
+</table></div>
+</div></div></div></body></html>

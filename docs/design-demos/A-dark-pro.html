@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><title>A · 深色专业风</title><style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:"Segoe UI","Microsoft YaHei",sans-serif;background:#1e1e2e;color:#cdd6f4;height:100vh;display:flex;overflow:hidden}
+.side{width:200px;background:#181825;border-right:1px solid #313244;padding:16px 8px;display:flex;flex-direction:column}
+.logo{font-size:15px;font-weight:700;color:#89b4fa;padding:0 12px 16px;letter-spacing:.5px}
+.logo small{display:block;font-size:10px;color:#6c7086;font-weight:400;margin-top:2px}
+.nav{padding:6px 10px;border-radius:6px;font-size:13px;color:#a6adc8;margin-bottom:2px;display:flex;gap:8px;align-items:center}
+.nav:hover{background:#313244}
+.nav.on{background:#313244;color:#89b4fa;border-left:2px solid #89b4fa}
+.nav .ic{width:14px;height:14px;border-radius:3px;background:#45475a;flex:none}
+.nav.on .ic{background:#89b4fa}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.top{height:44px;background:#181825;border-bottom:1px solid #313244;display:flex;align-items:center;padding:0 20px;gap:12px}
+.crumb{font-size:13px;color:#6c7086}
+.crumb b{color:#cdd6f4;font-weight:600}
+.search{margin-left:auto;width:240px;background:#313244;border:1px solid #45475a;border-radius:6px;padding:5px 10px;font-size:12px;color:#6c7086}
+.content{flex:1;overflow:auto;padding:20px}
+.cards{display:flex;gap:14px;margin-bottom:16px}
+.card{background:#181825;border:1px solid #313244;border-radius:8px;padding:16px;flex:1}
+.card .lb{font-size:11px;color:#6c7086;text-transform:uppercase;letter-spacing:.8px}
+.card .num{font-size:26px;font-weight:700;margin-top:6px;font-family:Consolas,monospace}
+.blue{color:#89b4fa}.green{color:#a6e3a1}.red{color:#f38ba8}.yellow{color:#f9e2af}
+.panel{background:#181825;border:1px solid #313244;border-radius:8px;overflow:hidden}
+.ptitle{padding:12px 16px;border-bottom:1px solid #313244;font-size:13px;font-weight:600;display:flex;justify-content:space-between}
+.ptitle span{color:#6c7086;font-weight:400;font-size:11px}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{text-align:left;padding:8px 16px;color:#6c7086;font-weight:500;border-bottom:1px solid #313244;font-size:11px}
+td{padding:9px 16px;border-bottom:1px solid #262637;color:#bac2de}
+tr:hover td{background:#1f1f30}
+.tag{display:inline-block;padding:1px 8px;border-radius:10px;font-size:10.5px}
+.t-ins{background:#313244;color:#89b4fa}.t-mcp{background:#3b2f4a;color:#cba6f7}.t-skl{background:#1f3a2e;color:#a6e3a1}
+.dot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:6px}
+.d-ok{background:#a6e3a1}.d-err{background:#f38ba8}
+</style></head><body>
+<div class="side"><div class="logo">cfg4ai<small>配置治理 v1.0</small></div>
+<div class="nav on"><span class="ic"></span>仪表盘</div><div class="nav"><span class="ic"></span>实体</div><div class="nav"><span class="ic"></span>采集</div><div class="nav"><span class="ic"></span>迁移</div><div class="nav"><span class="ic"></span>快照</div><div class="nav"><span class="ic"></span>密钥</div><div class="nav"><span class="ic"></span>一致性</div><div class="nav"><span class="ic"></span>历史</div><div class="nav"><span class="ic"></span>活动</div><div class="nav"><span class="ic"></span>发现</div><div class="nav"><span class="ic"></span>关系</div><div class="nav"><span class="ic"></span>同步</div></div>
+<div class="main"><div class="top"><span class="crumb">cfg4ai / <b>仪表盘</b></span><div class="search">⌘K 命令面板…</div></div>
+<div class="content">
+<div class="cards">
+<div class="card"><div class="lb">健康分</div><div class="num green">92</div></div>
+<div class="card"><div class="lb">纳管实体</div><div class="num blue">47</div></div>
+<div class="card"><div class="lb">漂移项</div><div class="num yellow">2</div></div>
+<div class="card"><div class="lb">校验失败</div><div class="num red">0</div></div>
+<div class="card"><div class="lb">快照</div><div class="num">6</div></div>
+</div>
+<div class="panel"><div class="ptitle">实体列表<span>最近更新排序</span></div>
+<table><tr><th>ID</th><th>类型</th><th>状态</th><th>来源工具</th><th>更新时间</th></tr>
+<tr><td>instruction.coding-style</td><td><span class="tag t-ins">指令</span></td><td><span class="dot d-ok"></span>启用</td><td>claude-code</td><td>2 小时前</td></tr>
+<tr><td>mcp.filesystem</td><td><span class="tag t-mcp">MCP</span></td><td><span class="dot d-ok"></span>启用</td><td>codex</td><td>昨天</td></tr>
+<tr><td>skill.code-review</td><td><span class="tag t-skl">技能</span></td><td><span class="dot d-err"></span>禁用</td><td>zhanlu</td><td>3 天前</td></tr>
+<tr><td>mcp.github</td><td><span class="tag t-mcp">MCP</span></td><td><span class="dot d-ok"></span>启用</td><td>claude-code</td><td>上周</td></tr>
+<tr><td>instruction.safe-redline</td><td><span class="tag t-ins">指令</span></td><td><span class="dot d-ok"></span>启用</td><td>模板库</td><td>上周</td></tr>
+</table></div>
+</div></div></div></body></html>

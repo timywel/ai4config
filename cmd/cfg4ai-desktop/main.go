@@ -4,16 +4,19 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"image/color"
 	"log"
 	"os"
+	"path/filepath"
 	"slices"
 	"sort"
 	"strings"
 	"time"
 
 	"gioui.org/app"
+	"gioui.org/f32"
 	"gioui.org/font"
 	"image"
 
@@ -94,8 +97,9 @@ type desktopApp struct {
 	snapWidget *widget.List
 	win        *app.Window // 用于 goroutine 完成后触发重绘
 
-	ts    *desktopui.ThemeStore // 主题（深色默认）
-	icons desktopui.IconSet     // 图标集
+	ts         *desktopui.ThemeStore // 主题（A/B/D 三主题，D 默认）
+	themeGroup *desktopui.ChipGroup  // 主题切换
+	icons      desktopui.IconSet     // 图标集
 
 	bundle      *ir.Bundle                // 完整实体数据（详情用）
 	selKind     string                    // 选中实体类型
@@ -184,7 +188,8 @@ func newDesktopApp() *desktopApp {
 	}
 	d.collectTool.Value = ""
 	d.collectScope.Value = "all"
-	d.ts = desktopui.NewThemeStore(true) // 深色默认
+	d.ts = desktopui.NewThemeStore(loadThemeMode()) // 持久化偏好，默认 D
+	d.themeGroup = desktopui.NewChipGroup(desktopui.ModeNames[d.ts.Mode])
 	d.icons = desktopui.MustIcons()
 	d.detailBtns = map[int]*widget.Clickable{}
 	d.closeDetail = new(widget.Clickable)
@@ -337,7 +342,7 @@ func (d *desktopApp) loop(w *app.Window) error {
 			return e.Err
 		case app.FrameEvent:
 			gtx := app.NewContext(&ops, e)
-			paint.Fill(gtx.Ops, cs.Bg) // 主题底色
+			d.paintBackground(gtx, cs) // 主题背景（D=渐变光斑，A/B=纯色）
 
 			// 命令面板键盘事件（Ctrl+K 唤出）
 
@@ -359,6 +364,10 @@ func (d *desktopApp) loop(w *app.Window) error {
 				d.paletteOpen = true
 				d.paletteEditor.SetText("")
 				d.paletteSel = 0
+				// 主题切换检测
+				if label := d.themeGroup.Value; label != "" && label != desktopui.ModeNames[d.ts.Mode] {
+					d.applyThemeByLabel(label)
+				}
 			}
 			// 收藏切换
 			if d.favBtn.Clicked(gtx) && d.selID != "" {
@@ -535,6 +544,16 @@ func (d *desktopApp) navLayout(gtx layout.Context, th *material.Theme) layout.Di
 	}))
 	children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 		return d.navItem(gtx, th, cs, d.icons.Search, "命令面板", d.paletteOpen, d.paletteBtn)
+	}))
+	children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(12)}.Layout))
+	// 主题切换（A/B/D）
+	children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		lbl := material.Caption(th, "主题")
+		lbl.Color = cs.TextSecondary
+		return lbl.Layout(gtx)
+	}))
+	children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		return d.themeGroup.Layout(gtx, th, cs, []string{desktopui.ModeNames[desktopui.ModeDarkPro], desktopui.ModeNames[desktopui.ModeLightClean], desktopui.ModeNames[desktopui.ModeGlass]})
 	}))
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
 }
@@ -2845,4 +2864,84 @@ func (d *desktopApp) doPresetPush() {
 	}
 	d.repo.Audit("preset-push", "user", name, "团队预设下发 "+name, "ok", nil, 0)
 	d.setMsg("已下发团队预设: "+name, false)
+}
+
+// ---- 主题偏好持久化（desktop.json，本机 UI 设置不入 SSOT 仓库） ----
+
+// loadThemeMode 读取主题偏好（默认 D 玻璃拟态）。
+func loadThemeMode() string {
+	root, err := paths.DataHome()
+	if err != nil {
+		return desktopui.ModeGlass
+	}
+	data, err := os.ReadFile(filepath.Join(root, "desktop.json"))
+	if err != nil {
+		return desktopui.ModeGlass
+	}
+	var cfg struct {
+		Theme string `json:"theme"`
+	}
+	if json.Unmarshal(data, &cfg) != nil {
+		return desktopui.ModeGlass
+	}
+	return cfg.Theme
+}
+
+// saveThemeMode 写入主题偏好。
+func saveThemeMode(mode string) {
+	root, err := paths.DataHome()
+	if err != nil {
+		return
+	}
+	data, _ := json.Marshal(map[string]string{"theme": mode})
+	_ = os.WriteFile(filepath.Join(root, "desktop.json"), data, 0600)
+}
+
+// applyThemeByLabel 按 chip 显示名切换主题并持久化。
+func (d *desktopApp) applyThemeByLabel(label string) {
+	for mode, name := range desktopui.ModeNames {
+		if name == label && mode != d.ts.Mode {
+			d.ts.SetMode(mode)
+			saveThemeMode(mode)
+			if d.win != nil {
+				d.win.Invalidate()
+			}
+			return
+		}
+	}
+}
+
+// paintBackground 主题背景（D=渐变+光斑；A/B=纯色）。
+func (d *desktopApp) paintBackground(gtx layout.Context, cs desktopui.Colors) {
+	if !cs.IsGlass {
+		paint.Fill(gtx.Ops, cs.Bg)
+		return
+	}
+	// 三段垂直渐变（0f0c29 → 302b63 → 24243e）
+	sz := gtx.Constraints.Max
+	paint.LinearGradientOp{
+		Stop1:  f32.Pt(0, 0),
+		Stop2:  f32.Pt(0, float32(sz.Y)),
+		Color1: cs.GradientTop,
+		Color2: cs.GradientBot,
+	}.Add(gtx.Ops)
+	paint.PaintOp{}.Add(gtx.Ops)
+	// 光斑 A：右上紫
+	glow(gtx, float32(sz.X)*0.85, float32(sz.Y)*0.05, float32(sz.X)*0.45, cs.GlowA)
+	// 光斑 B：左下青
+	glow(gtx, float32(sz.X)*0.1, float32(sz.Y)*0.9, float32(sz.X)*0.35, cs.GlowB)
+}
+
+// glow 画柔光圆斑（多圈同心圆近似柔边）。
+func glow(gtx layout.Context, cx, cy, r float32, c color.NRGBA) {
+	for i := 5; i >= 1; i-- {
+		rr := r * float32(i) / 5
+		alpha := uint8(int(c.A) * (6 - i) / 12)
+		col := color.NRGBA{R: c.R, G: c.G, B: c.B, A: alpha}
+		area := clip.Ellipse{
+			Min: image.Pt(int(cx-rr), int(cy-rr)),
+			Max: image.Pt(int(cx+rr), int(cy+rr)),
+		}.Op(gtx.Ops)
+		paint.FillShape(gtx.Ops, col, area)
+	}
 }

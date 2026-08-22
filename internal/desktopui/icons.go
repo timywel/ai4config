@@ -22,6 +22,19 @@ type IconSet struct {
 	History   *widget.Icon
 	Key       *widget.Icon
 	Close     *widget.Icon
+	// 导航补齐（12 页）
+	CompareArrows *widget.Icon // 一致性
+	Timeline      *widget.Icon // 活动
+	Explore       *widget.Icon // 发现
+	Hub           *widget.Icon // 关系
+	Renew         *widget.Icon // 同步
+	// 操作补齐
+	Refresh    *widget.Icon // 刷新
+	Star       *widget.Icon // 收藏（实）
+	StarBorder *widget.Icon // 收藏（空）
+	Restore    *widget.Icon // 恢复
+	Upload     *widget.Icon // 下发/推送
+	Info       *widget.Icon // 信息
 }
 
 // MustIcons 构造图标集（失败 panic——图标数据是编译期常量，失败即编程错误）。
@@ -49,5 +62,18 @@ func MustIcons() IconSet {
 		History:   mk(icons.ActionHistory),
 		Key:       mk(icons.CommunicationVPNKey),
 		Close:     mk(icons.NavigationClose),
+		// 导航补齐
+		CompareArrows: mk(icons.ActionCompareArrows),
+		Timeline:      mk(icons.ActionTimeline),
+		Explore:       mk(icons.ActionExplore),
+		Hub:           mk(icons.HardwareDeviceHub),
+		Renew:         mk(icons.ActionAutorenew),
+		// 操作补齐
+		Refresh:    mk(icons.NavigationRefresh),
+		Star:       mk(icons.ToggleStar),
+		StarBorder: mk(icons.ToggleStarBorder),
+		Restore:    mk(icons.ActionRestore),
+		Upload:     mk(icons.FileCloudUpload),
+		Info:       mk(icons.ActionInfo),
 	}
 }

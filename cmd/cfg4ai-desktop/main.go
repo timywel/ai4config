@@ -8,6 +8,7 @@ import (
 	"image/color"
 	"log"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -502,7 +503,20 @@ func (d *desktopApp) loop(w *app.Window) error {
 // navLayout 左侧图标导航（图标+文字，选中高亮卡片式）。
 func (d *desktopApp) navLayout(gtx layout.Context, th *material.Theme) layout.Dimensions {
 	cs := d.ts.Colors
-	navIcons := []*widget.Icon{d.icons.Dashboard, d.icons.List, d.icons.Download, d.icons.Sync, d.icons.Snapshot}
+	navIcons := []*widget.Icon{
+		d.icons.Dashboard,     // 仪表盘
+		d.icons.List,          // 实体
+		d.icons.Download,      // 采集
+		d.icons.Sync,          // 迁移（SwapHoriz）
+		d.icons.Snapshot,      // 快照
+		d.icons.Key,           // 密钥
+		d.icons.CompareArrows, // 一致性
+		d.icons.History,       // 历史
+		d.icons.Timeline,      // 活动
+		d.icons.Explore,       // 发现
+		d.icons.Hub,           // 关系
+		d.icons.Renew,         // 同步
+	}
 	var children []layout.FlexChild
 	for i, name := range pageNames {
 		i := i
@@ -517,7 +531,7 @@ func (d *desktopApp) navLayout(gtx layout.Context, th *material.Theme) layout.Di
 	}
 	children = append(children, layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout))
 	children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-		return d.navItem(gtx, th, cs, d.icons.History, "刷新", false, d.refreshBtn)
+		return d.navItem(gtx, th, cs, d.icons.Refresh, "刷新", false, d.refreshBtn)
 	}))
 	children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 		return d.navItem(gtx, th, cs, d.icons.Search, "命令面板", d.paletteOpen, d.paletteBtn)
@@ -978,7 +992,11 @@ func (d *desktopApp) detailPanel(gtx layout.Context, th *material.Theme, cs desk
 					return btn.Layout(gtx)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					btn := material.IconButton(th, d.favBtn, d.icons.Check, "收藏")
+					star := d.icons.StarBorder
+					if d.annotations != nil && slices.Contains(d.annotations.Favorite, d.selID) {
+						star = d.icons.Star
+					}
+					btn := material.IconButton(th, d.favBtn, star, "收藏")
 					return btn.Layout(gtx)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
